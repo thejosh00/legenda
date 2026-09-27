@@ -7,6 +7,7 @@ import {HistoryView} from './History.tsx';
 import {ListView} from './List.tsx';
 import {SharedContext, type Shared} from './state.ts';
 import {TasteView} from './Taste.tsx';
+import logo from './logo.svg';
 
 const VIEWS = [
   {id: 'list', label: 'List', icon: '☰'},
@@ -36,7 +37,10 @@ function SignIn({onSignedIn}: {onSignedIn: () => void}) {
   };
   return (
     <main className="signin">
-      <h1 className="brand">legenda</h1>
+      <h1 className="brand">
+        <img className="logo" src={logo} alt="" width={40} height={40} />
+        legenda
+      </h1>
       <p className="muted">Things that ought to be read. Sign in with a token for <code>you</code>:</p>
       <pre className="hint">legenda token you</pre>
       <form
@@ -131,6 +135,7 @@ export function App() {
       <div className="shell">
         <header className="topbar">
           <a className="brand" href="#/list">
+            <img className="logo" src={logo} alt="" width={26} height={26} />
             legenda
           </a>
           <nav className="tabs-top">

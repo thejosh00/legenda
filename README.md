@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="legenda" width="96" height="96">
+</p>
+
 # legenda
 
 *Legenda*: Latin for "things that ought to be read".

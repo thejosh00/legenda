@@ -221,6 +221,17 @@ pre {
   margin: 0;
 }
 
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand .logo {
+  border-radius: 22%;
+  flex: none;
+}
+
 .tabs-top {
   display: none;
   gap: 4px;
