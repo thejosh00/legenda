@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?channel_id=UCexampleChannel0000000A"/>
+ <id>yt:channel:exampleChannel0000000A</id>
+ <yt:channelId>UCexampleChannel0000000A</yt:channelId>
+ <title>Example Workshop</title>
+ <link rel="alternate" href="https://www.youtube.com/channel/UCexampleChannel0000000A"/>
+ <author>
+  <name>Example Workshop</name>
+  <uri>https://www.youtube.com/channel/UCexampleChannel0000000A</uri>
+ </author>
+ <published>2015-03-01T10:00:00+00:00</published>
+ <entry>
+  <id>yt:video:vidAAAAAAA3</id>
+  <yt:videoId>vidAAAAAAA3</yt:videoId>
+  <yt:channelId>UCexampleChannel0000000A</yt:channelId>
+  <title>Dovetails &amp; half-blind joints, by hand</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=vidAAAAAAA3"/>
+  <author>
+   <name>Example Workshop</name>
+   <uri>https://www.youtube.com/channel/UCexampleChannel0000000A</uri>
+  </author>
+  <published>2026-09-12T14:00:00+00:00</published>
+  <updated>2026-09-12T15:00:00+00:00</updated>
+  <media:group>
+   <media:title>Dovetails &amp; half-blind joints, by hand</media:title>
+   <media:content url="https://www.youtube.com/v/vidAAAAAAA3?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/vidAAAAAAA3/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Cutting half-blind dovetails with a saw and chisels.</media:description>
+   <media:community>
+    <media:starRating count="120" average="5.00" min="1" max="5"/>
+    <media:statistics views="1000"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:vidAAAAAAA2</id>
+  <yt:videoId>vidAAAAAAA2</yt:videoId>
+  <yt:channelId>UCexampleChannel0000000A</yt:channelId>
+  <title>A quick tip</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/vidAAAAAAA2"/>
+  <author><name>Example Workshop</name><uri>https://www.youtube.com/channel/UCexampleChannel0000000A</uri></author>
+  <published>2026-09-11T14:00:00+00:00</published>
+  <updated>2026-09-11T15:00:00+00:00</updated>
+  <media:group>
+   <media:title>A quick tip</media:title>
+   <media:thumbnail url="https://i2.ytimg.com/vi/vidAAAAAAA2/hqdefault.jpg" width="480" height="360"/>
+   <media:description></media:description>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:vidAAAAAAA1</id>
+  <yt:videoId>vidAAAAAAA1</yt:videoId>
+  <yt:channelId>UCexampleChannel0000000A</yt:channelId>
+  <title>Sharpening, the whole process</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=vidAAAAAAA1"/>
+  <author><name>Example Workshop</name><uri>https://www.youtube.com/channel/UCexampleChannel0000000A</uri></author>
+  <published>2026-08-01T14:00:00+00:00</published>
+  <updated>2026-08-01T15:00:00+00:00</updated>
+  <media:group>
+   <media:title>Sharpening, the whole process</media:title>
+   <media:thumbnail url="https://i2.ytimg.com/vi/vidAAAAAAA1/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Stones, strops, and angles.</media:description>
+  </media:group>
+ </entry>
+</feed>

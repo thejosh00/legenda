@@ -1,0 +1,27 @@
+{
+  "name": "legenda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "What to watch or read next: a list you keep, and an agent that adds to it",
+  "bin": {
+    "legenda": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts serve --dev",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run typecheck && bun test",
+    "test:unit": "bun test tests/unit",
+    "build": "bun build --compile --minify src/cli.ts --outfile dist/legenda"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <id>https://arxiv.org/api/abc</id>
+  <title>arXiv Query: search_query=cat:cs.DC</title>
+  <updated>2026-09-12T00:00:00-04:00</updated>
+  <opensearch:totalResults>9999</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2609.01002v1</id>
+    <updated>2026-09-11T17:00:00Z</updated>
+    <published>2026-09-11T17:00:00Z</published>
+    <title>Leaderless Replication
+      with Bounded Staleness</title>
+    <summary>  We present a replication protocol that &lt;bounds&gt; staleness without a leader.
+    </summary>
+    <author><name>Ada Example</name></author>
+    <author><name>Ben Sample</name></author>
+    <arxiv:comment>14 pages, 6 figures</arxiv:comment>
+    <link href="http://arxiv.org/abs/2609.01002v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2609.01002v1" rel="related" type="application/pdf"/>
+    <arxiv:primary_category term="cs.DC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.DC" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.01001v2</id>
+    <updated>2026-09-10T17:00:00Z</updated>
+    <published>2026-09-10T17:00:00Z</published>
+    <title>A Survey of Consensus</title>
+    <summary>A survey.</summary>
+    <author><name>Cy Survey</name></author>
+    <arxiv:doi>10.1145/1234567.7654321</arxiv:doi>
+    <link href="http://arxiv.org/abs/2609.01001v2" rel="alternate" type="text/html"/>
+    <arxiv:primary_category term="cs.DC" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>
