@@ -84,6 +84,17 @@ describe('polling a channel', () => {
     expect(follows.find((f: {id: string}) => f.id === broken).last_error).toContain('404');
   });
 
+  test('a feed that answers 404 or 500 once is retried, since YouTube\'s feeds flake', async () => {
+    const xml = await fixture('youtube-feed.xml');
+    const flakes = [404, 500];
+    lg.web.on(FEED, () => {
+      const status = flakes.shift();
+      return status === undefined ? new Response(xml, {headers: {'content-type': 'text/xml'}}) : new Response('nope', {status});
+    });
+    await follow();
+    expect(lg.web.count(FEED)).toBe(3);
+  });
+
   test('a screened follow offers its videos for screening instead', async () => {
     await follow(CHANNEL, ['--screened', '--note', 'joinery only']);
     const polled = await lg.j(['poll']);

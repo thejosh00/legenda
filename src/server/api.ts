@@ -46,7 +46,11 @@ export function allRoutes(): readonly CompiledRoute[] {
   return COMPILED;
 }
 
-export async function handleApi(ctx: Ctx, request: Request, url: URL): Promise<Response | undefined> {
+/**
+ * `log` gets one line per failed request, so an error the web app only flashes on screen
+ * can be read back later from the server's output (`legenda service logs`).
+ */
+export async function handleApi(ctx: Ctx, request: Request, url: URL, log: (line: string) => void = () => {}): Promise<Response | undefined> {
   let pathMatched = false;
   for (const route of COMPILED) {
     const match = route.regex.exec(url.pathname);
@@ -67,8 +71,11 @@ export async function handleApi(ctx: Ctx, request: Request, url: URL): Promise<R
       const result = await route.handler(ctx, {params, query: url.searchParams, body, request});
       return json({ok: true, ...result});
     } catch (error) {
-      if (error instanceof AppError) return errorResponse(error);
-      return errorResponse(new AppError(`internal error: ${describe(error)}`, EXIT_ERROR, {}, 500));
+      const failed = error instanceof AppError ? error : new AppError(`internal error: ${describe(error)}`, EXIT_ERROR, {}, 500);
+      const response = errorResponse(failed);
+      log(`${ctx.now()} ${request.method} ${url.pathname} ${response.status} (${ctx.actor}): ${failed.message}`);
+      if (!(error instanceof AppError) && error instanceof Error && error.stack !== undefined) log(error.stack);
+      return response;
     }
   }
   if (pathMatched) return errorResponse(new AppError(`${request.method} is not supported on ${url.pathname}`, EXIT_USAGE, {}, 405));

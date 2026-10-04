@@ -72,3 +72,10 @@ test('history lists carry their reactions and reasons', async () => {
   const body = await (await fetch(`${lg.url}/api/items?state=done&feedback=1`, {headers: {cookie}})).json();
   expect(body.items[0].feedback).toEqual([{kind: 'liked', note: 'good', at: lg.clock.now}]);
 });
+
+test('a failed request is written to the server log, so a flashed error can be read later', async () => {
+  const response = await fetch(`${lg.url}/api/items/nope`, {headers: {authorization: `Bearer ${lg.token('you')}`}});
+  expect(response.ok).toBe(false);
+  const {error} = await response.json();
+  expect(lg.log).toContainEqual(expect.stringContaining(`GET /api/items/nope ${response.status} (you): ${error}`));
+});

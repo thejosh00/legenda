@@ -33,6 +33,8 @@ export interface Instance {
   url: string;
   tokens: Record<string, string>;
   clock: {now: string};
+  /** What the server logged, one entry per line. */
+  log: string[];
   /** Run `legenda …`; `as` picks the actor's token (default `you`). */
   cli(args: string[], options?: {as?: string; stdin?: string; env?: Record<string, string>}): Promise<CliResult>;
   /** `cli` with `--json` added, asserting nothing. */
@@ -50,7 +52,8 @@ export async function startInstance(options: {now?: string; settings?: Record<st
   for (const [key, value] of Object.entries(options.settings ?? {})) setSetting(db, key, value);
   const clock = {now: options.now ?? T0};
   const web = new FakeWeb();
-  const server = startServer({db, port: 0, hostname: '127.0.0.1', now: () => clock.now, fetcher: web.fetcher});
+  const log: string[] = [];
+  const server = startServer({db, port: 0, hostname: '127.0.0.1', now: () => clock.now, fetcher: web.fetcher, log: line => log.push(line)});
   const tokens: Record<string, string> = {};
   const token = (actor: string) => (tokens[actor] ??= createToken(db, actor, clock.now));
   token('you');
@@ -85,6 +88,7 @@ export async function startInstance(options: {now?: string; settings?: Record<st
     url: server.url,
     tokens,
     clock,
+    log,
     cli,
     j: (args, opts) => cli([...args, '--json'], opts),
     ctx: (actor = 'you') => new Ctx(server.deps, actor),

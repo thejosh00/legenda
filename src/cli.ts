@@ -283,6 +283,7 @@ async function serve(request: ServeRequest): Promise<number> {
     port: request.port,
     development: request.development,
     background: deps => startBackground(deps, {dataDir: request.dataDir, log: line => request.out(line)}),
+    log: line => request.out(line),
   });
 
   request.out(`legenda is serving ${request.dbPath}`);

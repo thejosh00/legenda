@@ -30,6 +30,8 @@ export interface ServeOptions {
   development?: boolean;
   /** Background work (the poller, backups). Off in tests, which drive it themselves. */
   background?: (deps: AppDeps) => () => void;
+  /** Where failed API requests are reported. Off unless given. */
+  log?: (line: string) => void;
 }
 
 export interface RunningServer {
@@ -147,7 +149,7 @@ export function startServer(options: ServeOptions): RunningServer {
         const caller = callerOf(db, request);
         if (caller === undefined) return unauthorized();
         const url = new URL(request.url);
-        const response = await handleApi(new Ctx(deps, caller.actor), request, url);
+        const response = await handleApi(new Ctx(deps, caller.actor), request, url, options.log);
         return response ?? errorResponse(new AppError(`no such endpoint: ${request.method} ${url.pathname}`, EXIT_NOT_FOUND));
       },
     },

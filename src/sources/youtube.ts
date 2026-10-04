@@ -23,6 +23,8 @@ import type {SearchOpts, Source, SourceDeps} from './types.ts';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 const UNITS = {search: 100, videos: 1, channels: 1};
+const FEED_ATTEMPTS = 4;
+const FEED_RETRY_MS = 250;
 
 export function youtubeSource(deps: SourceDeps): Source {
   const key = () => deps.setting('youtube_api_key');
@@ -47,7 +49,18 @@ export function youtubeSource(deps: SourceDeps): Source {
   }
 
   async function feed(channelId: string) {
-    return parseUploadsFeed(await (await get(feedUrl(channelId), `channel ${channelId}`)).text());
+    // The feed endpoint flakes: about one request in six for a live channel answers 404
+    // or 5xx, then the next succeeds. Retry a few times before believing it.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return parseUploadsFeed(await (await get(feedUrl(channelId), `channel ${channelId}`)).text());
+      } catch (error) {
+        const status = error instanceof AppError ? error.extra['status'] : undefined;
+        const flaky = status === 404 || (typeof status === 'number' && status >= 500);
+        if (!flaky || attempt >= FEED_ATTEMPTS) throw error;
+        await Bun.sleep(FEED_RETRY_MS * attempt);
+      }
+    }
   }
 
   async function channelFromId(channelId: string): Promise<FollowCandidate> {
