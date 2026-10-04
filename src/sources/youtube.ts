@@ -1,7 +1,8 @@
 /**
  * YouTube, fetched by the app.
  *
- * Channel follows are polled from their public Atom feeds, which need no key. Search
+ * Channel follows are polled from their public Atom feeds, which need no key, or with a
+ * key from the Data API, since the feeds often fail for hours at a time. Search
  * and durations use the Data API v3 when `youtube_api_key` is set, spending units from
  * the daily budget. Without a key the source still works, with less: details come from
  * oEmbed (no duration), and search says plainly that it needs a key.
@@ -10,19 +11,25 @@ import {AppError, EXIT_ERROR, usageError} from '../core/errors.ts';
 import type {Follow, FollowCandidate, ItemInput} from '../core/types.ts';
 import {
   channelIdFromHtml,
+  channelTitleFromHtml,
   channelUrl,
   feedUrl,
   parseChannelRef,
   parseUploadsFeed,
   parseVideoRef,
+  shortsPlaylist,
+  uploadsPlaylist,
   videoFromApi,
+  videoFromPlaylistItem,
   videoFromOembed,
   videoUrl,
 } from '../core/youtube.ts';
 import type {SearchOpts, Source, SourceDeps} from './types.ts';
 
 const API = 'https://www.googleapis.com/youtube/v3';
-const UNITS = {search: 100, videos: 1, channels: 1};
+const UNITS = {search: 100, videos: 1, channels: 1, playlistItems: 1};
+/** About what the feed offers: enough to catch up after a day of failed polls. */
+const UPLOADS_PAGE = 15;
 const FEED_ATTEMPTS = 4;
 const FEED_RETRY_MS = 250;
 
@@ -63,16 +70,17 @@ export function youtubeSource(deps: SourceDeps): Source {
     }
   }
 
+  // Following reads the channel page, not the feed: the page answers reliably, while the
+  // feed can fail for hours at a time. A failing feed then only delays polling.
   async function channelFromId(channelId: string): Promise<FollowCandidate> {
-    const parsed = await feed(channelId);
-    return {kind: 'channel', external_id: channelId, title: parsed.title ?? channelId, url: channelUrl(channelId)};
+    return channelFromPage(channelUrl(channelId));
   }
 
   async function channelFromPage(url: string): Promise<FollowCandidate> {
     const html = await (await get(url, 'the channel page')).text();
     const id = channelIdFromHtml(html);
     if (id === undefined) throw new AppError(`could not find a channel id on ${url}`, EXIT_ERROR);
-    return channelFromId(id);
+    return {kind: 'channel', external_id: id, title: channelTitleFromHtml(html) ?? id, url: channelUrl(id)};
   }
 
   async function videosByApi(ids: string[]): Promise<ItemInput[]> {
@@ -86,6 +94,28 @@ export function youtubeSource(deps: SourceDeps): Source {
       }
     }
     return found;
+  }
+
+  async function playlist(playlistId: string, part: string): Promise<Array<Record<string, any>>> {
+    const body = await api('playlistItems', {part, playlistId, maxResults: String(UPLOADS_PAGE)}, UNITS.playlistItems);
+    return (body['items'] ?? []) as Array<Record<string, any>>;
+  }
+
+  /**
+   * The newest uploads, Shorts marked: the API has no Shorts flag, so they are found in
+   * the channel's Shorts playlist, which catches the ones too long to spot by duration.
+   */
+  async function uploadsByApi(channelId: string): Promise<ItemInput[]> {
+    const uploads = (await playlist(uploadsPlaylist(channelId), 'snippet,contentDetails'))
+      .map(videoFromPlaylistItem)
+      .filter((item): item is ItemInput => item !== undefined);
+    let shorts = new Set<string>();
+    try {
+      shorts = new Set((await playlist(shortsPlaylist(channelId), 'contentDetails')).map(r => String(r['contentDetails']?.['videoId'])));
+    } catch {
+      // A 404 means the channel has no Shorts; any other failure should not stop the poll.
+    }
+    return uploads.map(item => (shorts.has(item.external_id) ? {...item, extra: {...item.extra, short: true}} : item));
   }
 
   async function videoByOembed(id: string): Promise<ItemInput | undefined> {
@@ -138,7 +168,16 @@ export function youtubeSource(deps: SourceDeps): Source {
       throw usageError(`not a YouTube channel: ${input} (paste a channel URL, @handle, UC… id, or a video URL)`);
     },
 
+    // With a key, uploads come from the Data API: the feed fails for hours at a time.
+    // Without one, or if the API fails (quota spent, say), the feed is the fallback.
     async poll(follow: Follow) {
+      if (key() !== undefined) {
+        try {
+          return await uploadsByApi(follow.external_id);
+        } catch {
+          // fall through to the feed
+        }
+      }
       return (await feed(follow.external_id)).entries;
     },
 

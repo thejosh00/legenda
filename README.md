@@ -78,7 +78,7 @@ query syntax and how to re-authenticate are all instance settings.
 
 | Source | Fetched by | Follow | Notes |
 |---|---|---|---|
-| **YouTube** | the app | channels (URL, `@handle`, `UC…` id, or any video of theirs) | Polled hourly from the public feed, no key needed. Set `youtube_api_key` for search, durations and Shorts filtering (`youtube_daily_units` caps the spend, default 3000 of the free 10,000). |
+| **YouTube** | the app | channels (URL, `@handle`, `UC…` id, or any video of theirs) | Polled hourly, no key needed. A `youtube_api_key` makes polling more reliable and adds search and durations. See [YouTube with an API key](#youtube-with-an-api-key). |
 | **Papers** | the app | Semantic Scholar authors, arXiv categories (`cs.DC`), saved queries | Semantic Scholar plus arXiv, polled daily. Any arXiv id, DOI or S2 link names the same paper. Categories and queries are screened by the curator by default. `semantic_scholar_api_key` is optional. |
 | **Docs** | the agent | collections, tags, authors, queries | legenda never talks to the docs system and holds no credentials for it. The curator reads it with its own read-only tools and stores metadata and a 2–3 line summary, never page bodies. |
 
@@ -86,6 +86,30 @@ Screened follows don't put new items straight on the list. The curator judges ea
 against the follow's note (for example "only RFCs and design docs, not meeting notes").
 
 `legenda settings` lists every setting. Keys are stored but never shown.
+
+### YouTube with an API key
+
+Without a key, channels are polled from YouTube's public feed. The feed is unreliable: it
+often answers 404 or 500 for channels that exist, sometimes for hours at a time. legenda
+retries each poll a few times. If every try fails, the follow records the error, and the next
+hourly poll catches up on anything among the channel's 15 newest uploads, so new videos
+arrive late rather than being missed.
+
+With a key (`legenda settings set youtube_api_key …`), legenda polls through the Data API
+instead:
+
+- **Polling doesn't use the feed.** Each poll lists the channel's newest uploads from the
+  API. If the API fails (quota spent, key revoked), that poll falls back to the feed.
+- **Shorts are caught reliably.** Each poll also reads the channel's Shorts playlist, so
+  Shorts longer than a minute are skipped too (`skip_shorts`).
+- **New videos get durations,** and search becomes available to the curator.
+
+Each channel costs 2 units per poll, about 48 a day, plus 1 unit for each poll that finds new
+videos. `youtube_daily_units` caps the spend. The default of 3000 (Google's free limit is
+10,000 a day) covers roughly 50 channels.
+
+Following a channel never needs the feed: legenda reads the channel's page, with or without a
+key.
 
 ## The list, by hand
 

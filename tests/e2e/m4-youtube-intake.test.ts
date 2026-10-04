@@ -5,7 +5,7 @@
 import {afterEach, beforeEach, describe, expect, test} from 'bun:test';
 import {fixture} from '../helpers/fakeWeb.ts';
 import {startInstance, type Instance} from '../helpers/instance.ts';
-import {CHANNEL, FEED, serveChannel, serveVideosApi} from '../helpers/youtube.ts';
+import {CHANNEL, FEED, channelPage, serveChannel, serveUploadsApi, serveVideosApi} from '../helpers/youtube.ts';
 
 let lg: Instance;
 
@@ -60,19 +60,35 @@ describe('polling a channel', () => {
     expect((await lg.j(['poll'])).json.results[0].added).toBe(0);
   });
 
-  test('with a key, durations are filled and Shorts are caught by length', async () => {
+  test('with a key, uploads come from the API, durations are filled, and Shorts are caught', async () => {
     lg.db.query("INSERT INTO settings VALUES ('youtube_api_key', 'test-key')").run();
-    serveVideosApi(lg.web, {vidAAAAAAA3: 'PT21M', vidAAAAAAA1: 'PT45S'});
+    await serveUploadsApi(lg.web);
+    // vidAAAAAAA2 is in the Shorts playlist although its length would pass; vidAAAAAAA1 is caught by length.
+    serveVideosApi(lg.web, {vidAAAAAAA3: 'PT21M', vidAAAAAAA2: 'PT2M30S', vidAAAAAAA1: 'PT45S'});
     await follow();
-    await lg.j(['poll']);
+    lg.web.on(FEED, 'nope', 404);
+    const polled = await lg.j(['poll']);
+    expect(polled.json.results[0]).toMatchObject({added: 1, skipped: 2, error: null});
     const items = (await lg.j(['list'])).json.items;
     expect(items.map((i: {external_id: string; length_minutes: number}) => [i.external_id, i.length_minutes])).toEqual([['vidAAAAAAA3', 21]]);
+    expect(lg.web.count(FEED)).toBe(0);
+    expect(lg.web.count('https://www.googleapis.com/youtube/v3/playlistItems')).toBe(2);
     expect(lg.web.count('https://www.googleapis.com/youtube/v3/videos')).toBe(1);
+  });
+
+  test('with a key, a failing API falls back to the feed', async () => {
+    lg.db.query("INSERT INTO settings VALUES ('youtube_api_key', 'test-key')").run();
+    lg.web.on('https://www.googleapis.com/youtube/v3/playlistItems', {error: {code: 403, message: 'quotaExceeded'}}, 403);
+    serveVideosApi(lg.web, {vidAAAAAAA3: 'PT21M', vidAAAAAAA1: 'PT45S'});
+    await follow();
+    const polled = await lg.j(['poll']);
+    expect(polled.json.results[0]).toMatchObject({added: 1, error: null});
+    expect(lg.web.count(FEED)).toBe(1);
   });
 
   test('one failing follow does not stop the others', async () => {
     const other = 'UCbrokenChannel000000000';
-    lg.web.on(`https://www.youtube.com/feeds/videos.xml?channel_id=${other}`, {title: 'x'});
+    lg.web.on(`https://www.youtube.com/channel/${other}`, channelPage(other, 'Broken'));
     const broken = await follow(other);
     lg.web.on(`https://www.youtube.com/feeds/videos.xml?channel_id=${other}`, 'gone', 404);
     const good = await follow();
@@ -85,14 +101,24 @@ describe('polling a channel', () => {
   });
 
   test('a feed that answers 404 or 500 once is retried, since YouTube\'s feeds flake', async () => {
+    await follow();
     const xml = await fixture('youtube-feed.xml');
     const flakes = [404, 500];
     lg.web.on(FEED, () => {
       const status = flakes.shift();
       return status === undefined ? new Response(xml, {headers: {'content-type': 'text/xml'}}) : new Response('nope', {status});
     });
-    await follow();
+    const polled = await lg.j(['poll']);
+    expect(polled.json.results[0]).toMatchObject({added: 2, error: null});
     expect(lg.web.count(FEED)).toBe(3);
+  });
+
+  test('following a channel needs only its page, so a failing feed cannot stop it', async () => {
+    lg.web.on(FEED, 'nope', 404);
+    const followed = await lg.j(['follow', 'youtube', 'https://www.youtube.com/@exampleworkshop']);
+    expect(followed.code).toBe(0);
+    expect(followed.json.follow).toMatchObject({external_id: CHANNEL, title: 'Example Workshop'});
+    expect(lg.web.count(FEED)).toBe(0);
   });
 
   test('a screened follow offers its videos for screening instead', async () => {

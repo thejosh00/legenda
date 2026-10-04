@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test';
-import {channelIdFromHtml, parseChannelRef, parseVideoRef} from '../../src/core/youtube.ts';
+import {channelIdFromHtml, channelTitleFromHtml, parseChannelRef, parseVideoRef} from '../../src/core/youtube.ts';
 
 const ID = 'dQw4w9WgXcQ';
 
@@ -41,4 +41,9 @@ describe('channel refs', () => {
     expect(channelIdFromHtml(`<meta ...>"channelId":"${UC}","x"`)).toBe(UC);
     expect(channelIdFromHtml('<html></html>')).toBeUndefined();
   });
+});
+
+test('a channel page gives its name from og:title, entities decoded', () => {
+  expect(channelTitleFromHtml('<meta property="og:title" content="Theo - t3&#8228;gg &amp; friends">')).toBe('Theo - t3․gg & friends');
+  expect(channelTitleFromHtml('<html></html>')).toBeUndefined();
 });

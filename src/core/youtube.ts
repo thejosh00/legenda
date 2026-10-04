@@ -78,6 +78,22 @@ export function channelIdFromHtml(html: string): string | undefined {
   return undefined;
 }
 
+/** The channel's name from its page's og:title, best effort. */
+export function channelTitleFromHtml(html: string): string | undefined {
+  const match = /<meta property="og:title" content="([^"]*)"/.exec(html);
+  return match === null ? undefined : decodeEntities(match[1]!).trim() || undefined;
+}
+
+const decodeEntities = (text: string) =>
+  text
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
 // --- feeds and API responses ---------------------------------------------------------
 
 
@@ -161,6 +177,37 @@ export function videoFromApi(resource: Json): ItemInput | undefined {
     },
   };
 }
+
+/**
+ * One `playlistItems.list` resource from a channel's uploads playlist (snippet +
+ * contentDetails) → an item without duration. Private and deleted videos, which have
+ * no publication time, are skipped.
+ */
+export function videoFromPlaylistItem(resource: Json): ItemInput | undefined {
+  const snippet = resource['snippet'] as Json | undefined;
+  const id = resource['contentDetails']?.['videoId'] ?? snippet?.['resourceId']?.['videoId'];
+  const published = normalizeIso(resource['contentDetails']?.['videoPublishedAt']);
+  if (typeof id !== 'string' || snippet === undefined || published === undefined) return undefined;
+  const thumbs = snippet['thumbnails'] as Json | undefined;
+  const thumb = thumbs?.['medium']?.['url'] ?? thumbs?.['high']?.['url'] ?? thumbs?.['default']?.['url'];
+  const channelId = snippet['videoOwnerChannelId'] ?? snippet['channelId'];
+  return {
+    source: 'youtube',
+    external_id: id,
+    url: videoUrl(id),
+    title: String(snippet['title'] ?? ''),
+    creator: String(snippet['videoOwnerChannelTitle'] ?? snippet['channelTitle'] ?? ''),
+    creator_external_id: typeof channelId === 'string' ? channelId : null,
+    published,
+    thumbnail: typeof thumb === 'string' ? thumb : null,
+    extra: typeof snippet['description'] === 'string' && snippet['description'] !== '' ? {description: snippet['description'].slice(0, 500)} : {},
+  };
+}
+
+/** A channel's uploads playlist: the channel id with `UC` swapped for `UU`. */
+export const uploadsPlaylist = (channelId: string) => `UU${channelId.slice(2)}`;
+/** The same, Shorts only (`UUSH`); YouTube answers 404 when a channel has none. */
+export const shortsPlaylist = (channelId: string) => `UUSH${channelId.slice(2)}`;
 
 /** The key-free oEmbed answer → an item without duration or channel id. */
 export function videoFromOembed(id: string, body: Json): ItemInput {
