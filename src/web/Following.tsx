@@ -13,7 +13,7 @@ const KIND_HINT: Record<string, string> = {
 
 const SCREENED_BY_DEFAULT = (source: string, kind: string) => source === 'docs' || (source === 'papers' && (kind === 'category' || kind === 'query'));
 
-function FollowForm({source}: {source: SourceInfo}) {
+function FollowForm({source, onChange}: {source: SourceInfo; onChange: () => void}) {
   const shared = useShared();
   const [kind, setKind] = useState(source.follow_kinds[0]!);
   const [ref, setRef] = useState('');
@@ -26,6 +26,7 @@ function FollowForm({source}: {source: SourceInfo}) {
     try {
       const body = await post<{follow: Follow; existing: boolean}>('/api/follows', {source: source.id, ref: ref.trim(), kind, note, screened});
       shared.toast(`${body.existing ? 'Already following' : 'Following'} ${body.follow.title}`);
+      onChange();
       setRef('');
       setNote('');
     } catch (e) {
@@ -71,7 +72,7 @@ function FollowForm({source}: {source: SourceInfo}) {
   );
 }
 
-function FollowRow({follow}: {follow: Follow}) {
+function FollowRow({follow, onChange}: {follow: Follow; onChange: () => void}) {
   const shared = useShared();
   const [editing, setEditing] = useState(false);
   const [note, setNote] = useState(follow.note);
@@ -79,6 +80,7 @@ function FollowRow({follow}: {follow: Follow}) {
     try {
       await fn();
       shared.toast(message);
+      onChange();
     } catch (e) {
       shared.toast(e instanceof Error ? e.message : String(e));
     }
@@ -141,7 +143,8 @@ function FollowRow({follow}: {follow: Follow}) {
 
 export function FollowingView() {
   const {who} = useShared();
-  const {data, error} = useLoad<{follows: Follow[]}>('/api/follows');
+  // Reload after our own changes too, rather than relying on the event stream alone.
+  const {data, error, reload} = useLoad<{follows: Follow[]}>('/api/follows');
   return (
     <section className="narrow">
       <h2>Following</h2>
@@ -153,11 +156,11 @@ export function FollowingView() {
         return (
           <div key={source.id} className="source-block">
             <h3>{source.id === 'docs' ? (who.docs?.label ?? source.name) : source.name}</h3>
-            <FollowForm source={source} />
+            <FollowForm source={source} onChange={reload} />
             {following.length > 0 && (
               <ul className="follows">
                 {following.map(f => (
-                  <FollowRow key={f.id} follow={f} />
+                  <FollowRow key={f.id} follow={f} onChange={reload} />
                 ))}
               </ul>
             )}
@@ -166,7 +169,7 @@ export function FollowingView() {
                 <summary>{blocked.length} blocked</summary>
                 <ul className="follows">
                   {blocked.map(f => (
-                    <FollowRow key={f.id} follow={f} />
+                    <FollowRow key={f.id} follow={f} onChange={reload} />
                   ))}
                 </ul>
               </details>
