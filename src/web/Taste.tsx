@@ -5,7 +5,7 @@ import {ago, useLoad, useShared} from './state.ts';
 
 function Interests() {
   const shared = useShared();
-  const {data} = useLoad<{interests: Interest[]}>('/api/interests');
+  const {data, reload} = useLoad<{interests: Interest[]}>('/api/interests');
   const [topic, setTopic] = useState('');
   const [strength, setStrength] = useState<Interest['strength']>('core');
   const [sources, setSources] = useState<string[]>([]);
@@ -14,6 +14,7 @@ function Interests() {
   const add = async () => {
     try {
       await post('/api/interests', {topic, strength, sources, note});
+      reload();
       setTopic('');
       setNote('');
     } catch (e) {
@@ -23,6 +24,7 @@ function Interests() {
   const remove = async (id: string) => {
     try {
       await api('DELETE', `/api/interests/${encodeURIComponent(id)}`);
+      reload();
     } catch (e) {
       shared.toast(e instanceof Error ? e.message : String(e));
     }
@@ -80,7 +82,7 @@ function Interests() {
 
 function Profile() {
   const shared = useShared();
-  const {data} = useLoad<{profile: ProfileVersion | null; history: ProfileVersion[]}>('/api/profile?history=true');
+  const {data, reload} = useLoad<{profile: ProfileVersion | null; history: ProfileVersion[]}>('/api/profile?history=true');
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState('');
   const [note, setNote] = useState('');
@@ -90,6 +92,7 @@ function Profile() {
   const save = async () => {
     try {
       await api('PUT', '/api/profile', {body, note: note.trim() || 'edited by hand'});
+      reload();
       setEditing(false);
       setNote('');
       shared.toast('Profile saved');
