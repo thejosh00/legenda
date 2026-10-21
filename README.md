@@ -202,8 +202,29 @@ otto run --skill legenda-curate \
 - `maxTicksWithoutProgress=0`: a day with nothing worth suggesting is normal, not a stall.
 - The period is anchored on when a wake starts, so start the run at the time of day you want
   the list to update, or shift it once with `otto state arm-timer <id> --at <iso>`.
-- No check script: the poller already handles followed channels and feeds without waking
-  anyone, and discovery always has something to look at.
+
+### Only when the list runs low
+
+To skip the day's run when you already have plenty to get through, put a check script in
+front of it. `skills/legenda-curate/check.sh` counts what is in the queue and wakes the curator
+only when there are fewer than `LEGENDA_QUEUE_MAX` items (default 20):
+
+```bash
+otto check <run> --script "$PWD/skills/legenda-curate/check.sh" --wake-after 7
+```
+
+- **The queue is everything waiting** in the enabled sources: follow intake, the curator's
+  suggestions and what you added yourself.
+- **The period still sets how often it looks.** With `--period 1d` the check runs once a day.
+  A shorter period refills the list sooner after you clear it, but the daily caps still apply.
+- **`--wake-after 7` is the safety net.** The curator also learns from your reactions, so after
+  a week of skipped days it runs anyway. otto's default of 24 is 24 days at a daily period.
+- **A stopped server doesn't wake it**, and a broken script or `legenda` failing does (otto
+  fails open). `otto check <run>` shows the last result, e.g. `27 in the queue, at least 20`.
+- **To change the threshold**, or for a non-default instance, edit a copy of the script:
+  change the `20` on its `max=` line, and add `export LEGENDA_DIR=~/.legenda-work` if needed.
+  Then set the copy with `otto check` again. otto keeps its own copy of the script, and
+  launchers don't pass environment variables through.
 
 ### A docs instance, under a sandboxed launcher
 
