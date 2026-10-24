@@ -4,6 +4,7 @@
  * Settings live in the instance's database, which is what keeps anything specific to
  * one organisation out of the repo. Secrets are stored but never returned.
  */
+import {allowedHostsProblem} from '../server/hostCheck.ts';
 import {SOURCE_IDS, isSourceId, type SourceId} from './types.ts';
 
 export interface SettingSpec {
@@ -29,8 +30,13 @@ export const SETTINGS: Record<string, SettingSpec> = {
     },
   },
   listen_host: {
-    default: '0.0.0.0',
-    summary: 'where `legenda serve` listens: 0.0.0.0 (your network) or 127.0.0.1 (this machine)',
+    default: '127.0.0.1',
+    summary: 'where `legenda serve` listens: 127.0.0.1 (this machine only) or 0.0.0.0 (your network too; add names to allowed_hosts)',
+  },
+  allowed_hosts: {
+    default: undefined,
+    summary: "comma-separated host names the server answers to besides localhost, e.g. your Mac's name.local for the phone",
+    validate: allowedHostsProblem,
   },
   daily_suggestion_cap: {default: '5', summary: "agent suggestions per local day, all sources", validate: integer(0)},
   daily_follow_intake_cap: {default: '25', summary: 'agent-added follow items per day (screened + docs)', validate: integer(0)},
