@@ -193,25 +193,52 @@ The skill is at `skills/legenda-curate/SKILL.md`. Install it for Claude Code:
 ln -s "$PWD/skills/legenda-curate" ~/.claude/skills/legenda-curate
 ```
 
-Give the curator a token, and let the CLI find it without environment variables (it runs
-unattended, where no shell profile is loaded):
+Give the curator a token and a client directory of its own. `legenda login` keeps one token
+in `$LEGENDA_DIR/client.json`, so logging the curator in where you logged in would replace your
+token with its token, and your own commands would run as the curator. The CLI is only an HTTP
+client, so a directory holding nothing but the curator's `client.json` is enough. The
+database stays with the server.
 
 ```bash
 legenda token agent:curator
-legenda login --url http://127.0.0.1:7778 --token <it>     # writes $LEGENDA_DIR/client.json
+LEGENDA_DIR=~/.legenda-curator legenda login --url http://127.0.0.1:7778 --token <it>
 ```
 
-Try a run by hand first: in `claude`, ask it to "run the legenda curator". Then check the
-Curator page.
+`legenda token` writes to the instance's database directly, so run it with the instance's own
+`LEGENDA_DIR`, never the curator's. `login` only talks to the server.
+
+Your own commands keep using `~/.legenda`. The curator's commands use `~/.legenda-curator`
+because of how it is launched (below), not because the model has to remember a variable on
+each command. If it forgot one, it would act as you without anything saying so. Don't export
+`LEGENDA_DIR` or `LEGENDA_TOKEN` in your shell profile: Claude Code's shell loads that profile,
+so the value there would override the launcher's.
+
+Try a run by hand first: start `LEGENDA_DIR=~/.legenda-curator claude` and ask it to "run the
+legenda curator". Then check the Curator page.
 
 ## Running it daily under otto
 
+otto runs every wake through a launcher, so a launcher is where the curator gets its client
+directory. Add one to `~/.otto/config.json`. Use an absolute path, because `~` isn't expanded
+there:
+
+```json
+{
+  "launchers": [
+    { "name": "legenda-curator", "command": "env LEGENDA_DIR=/Users/you/.legenda-curator claude" }
+  ]
+}
+```
+
 ```bash
-otto run --skill legenda-curate \
+otto run --skill legenda-curate --launcher legenda-curator \
   --goal "Once a day, find new things I'd want to watch or read, add them to legenda, and learn from my feedback" \
   --perpetual --period 1d --policy maxTicksWithoutProgress=0
 ```
 
+- `--launcher legenda-curator`: every wake runs as `agent:curator`, whoever starts it.
+  `otto wake <id> --dry-run` prints the command, so you can check that the variable is set.
+  A run keeps its launcher by name, so to move an existing run onto it, start the run again.
 - `--perpetual`: there is no "done". Retire it with `otto stop`.
 - `maxTicksWithoutProgress=0`: a day with nothing worth suggesting is normal, not a stall.
 - The period is anchored on when a wake starts, so start the run at the time of day you want
@@ -235,26 +262,43 @@ otto check <run> --script "$PWD/skills/legenda-curate/check.sh" --wake-after 7
   a week of skipped days it runs anyway. otto's default of 24 is 24 days at a daily period.
 - **A stopped server doesn't wake it**, and a broken script or `legenda` failing does (otto
   fails open). `otto check <run>` shows the last result, e.g. `27 in the queue, at least 20`.
+- **The script reads with your login** in `~/.legenda`. Any token can list the queue, and
+  otto runs check scripts itself, not through the run's launcher.
 - **To change the threshold**, or for a non-default instance, edit a copy of the script:
   change the `20` on its `max=` line, and add `export LEGENDA_DIR=~/.legenda-work` if needed.
-  Then set the copy with `otto check` again. otto keeps its own copy of the script, and
-  launchers don't pass environment variables through.
+  Then set the copy with `otto check` again. otto keeps its own copy of the script.
 
 ### A docs instance, under a sandboxed launcher
 
 The curator reads your docs through tools its environment provides, usually an MCP server
-inside a sandbox that handles its own sign-in. Define that launcher in `~/.otto/config.json`
-and run the curator under it:
+inside a sandbox that handles its own sign-in. Give the work curator its own client directory,
+as above:
 
 ```bash
-LEGENDA_DIR=~/.legenda-work otto run --skill legenda-curate --launcher <your-sandbox-launcher> \
+LEGENDA_DIR=~/.legenda-work legenda token agent:curator
+LEGENDA_DIR=~/.legenda-work-curator legenda login --url http://127.0.0.1:7779 --token <it>
+```
+
+Then define a launcher in `~/.otto/config.json` that sets that directory in front of your
+sandbox, and run the curator under it:
+
+```json
+{ "name": "legenda-work-curator", "command": "env LEGENDA_DIR=/Users/you/.legenda-work-curator <your sandbox command> -- claude", "grantFlag": "…" }
+```
+
+```bash
+otto run --skill legenda-curate --launcher legenda-work-curator \
   --goal "…" --perpetual --period 1d --policy maxTicksWithoutProgress=0
 ```
+
+Setting `LEGENDA_DIR` in front of `otto run` wouldn't do it. Later wakes are started by otto's
+background reviver, which doesn't have your shell's environment. If your sandbox doesn't pass
+the parent environment through, set the variable with the sandbox's own option instead.
 
 The sandbox must allow the curator to:
 
 - reach the legenda server (for example `127.0.0.1:7779`),
-- read `$LEGENDA_DIR/client.json`,
+- read `~/.legenda-work-curator/client.json`,
 - see the skill in `~/.claude/skills/legenda-curate`, or the wake can't load it,
 - use the docs system's read-only tools.
 

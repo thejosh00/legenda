@@ -9,9 +9,10 @@
 # The queue counts everything waiting in the enabled sources: follow intake, the curator's
 # suggestions and what you added yourself.
 #
-# launchd's PATH is minimal, so legenda is named by absolute path. To change the threshold, or
-# for a non-default instance (LEGENDA_DIR), edit a copy of this script: otto copies the script
-# when you set it, and otto launchers don't set environment variables.
+# launchd's PATH is minimal, so legenda is named by absolute path. It reads with your own login
+# in $LEGENDA_DIR (any token can list): otto runs check scripts itself, not through the run's
+# launcher, so the curator's LEGENDA_DIR never reaches it. To change the threshold, or for a
+# non-default instance, edit a copy of this script: otto copies the script when you set it.
 LEGENDA="${LEGENDA_BIN:-$HOME/.bun/bin/legenda}"
 max="${LEGENDA_QUEUE_MAX:-20}"
 
