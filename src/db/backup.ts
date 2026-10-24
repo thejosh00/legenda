@@ -8,10 +8,11 @@
  * `VACUUM INTO` writes a consistent snapshot even while others write; the copy is only
  * renamed into place after it passes an integrity check.
  */
-import {existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync} from 'node:fs';
+import {chmodSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {Database} from 'bun:sqlite';
 import {localDate} from '../core/time.ts';
+import {PRIVATE_DIR, PRIVATE_FILE} from './fileModes.ts';
 
 export const BACKUP_DIR = 'backups';
 export const KEEP_DAILY = 14;
@@ -27,12 +28,13 @@ export function toPrune(names: readonly string[], keep: number): string[] {
 }
 
 export function takeBackup(db: Database, dir: string, name: string): string {
-  mkdirSync(dir, {recursive: true});
+  mkdirSync(dir, {recursive: true, mode: PRIVATE_DIR});
   const target = join(dir, name);
   const temp = join(dir, `.${name}.partial`);
   if (existsSync(temp)) unlinkSync(temp);
   try {
     db.query('VACUUM INTO ?').run(temp);
+    chmodSync(temp, PRIVATE_FILE);
     const copy = new Database(temp, {readonly: true});
     try {
       const result = copy.query('PRAGMA quick_check').get() as {quick_check: string} | null;

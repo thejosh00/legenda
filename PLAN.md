@@ -58,7 +58,7 @@ Either way, these are the conventions:
 | Runtime | Bun + TypeScript (`type: module`), `bun:sqlite`, React 19 for the web app bundled by Bun from `index.html` |
 | Layout | `src/core/` (pure: no fs, db, clock, randomness, React), `src/sources/` (one adapter per source), `src/db/`, `src/server/`, `src/commands/`, `src/web/`, `src/cli.ts`, `skills/`, `tests/{unit,e2e,db}` |
 | Storage | One SQLite file, `$LEGENDA_DIR/legenda.db` (`LEGENDA_DIR` defaults to `~/.legenda`), WAL mode + busy timeout, migrations as an append-only numbered list recorded in `user_version` |
-| Server | `legenda serve`, `--host`, `--port` (default **7778**). The default host is a setting: all interfaces (so a phone on the home network can reach it) or `127.0.0.1` only |
+| Server | `legenda serve`, `--host`, `--port` (default **7778**). The default host is a setting: `127.0.0.1` only (the default), or all interfaces with the names other devices use listed in `allowed_hosts` |
 | Service | `legenda service install|start|stop|restart|status|logs|uninstall` as a launchd agent (macOS) |
 | CLI | `legenda <command>` talks to the server over HTTP. Every command takes `--json`; success and failure both arrive as JSON on stdout, stderr empty: `{"ok":false,"error":"…","code":3}` |
 | Exit codes | `0` ok · `1` failed · `2` bad command/usage or not allowed · `3` not found · `4` server unreachable or busy |
@@ -73,7 +73,7 @@ Same binary, configured per machine through settings:
 | | personal (example) | work (example) |
 |---|---|---|
 | `enabled_sources` | `youtube,papers` | `papers,docs` |
-| `listen_host` | `0.0.0.0` | `127.0.0.1` |
+| `listen_host` | `0.0.0.0` (+ `allowed_hosts`) | `127.0.0.1` |
 | Curator runs under | otto with the plain `claude` launcher | otto with a sandboxed launcher whose environment provides read-only tools for the docs system |
 
 `enabled_sources` hides disabled sources everywhere — UI, CLI, the agent's `legenda context`.

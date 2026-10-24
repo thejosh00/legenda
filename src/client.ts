@@ -39,7 +39,7 @@ export function clientConfig(env: Record<string, string | undefined>, dataDir: s
 }
 
 export function writeClientFile(dataDir: string, config: {url: string; token: string}): string {
-  mkdirSync(dataDir, {recursive: true});
+  mkdirSync(dataDir, {recursive: true, mode: 0o700});
   const path = join(dataDir, CLIENT_FILE);
   writeFileSync(path, `${JSON.stringify({url: config.url.replace(/\/+$/, ''), token: config.token}, null, 2)}\n`, {mode: 0o600});
   return path;

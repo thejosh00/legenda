@@ -27,16 +27,31 @@ bun link            # puts `legenda` on your PATH (~/.bun/bin)
 ## Quick start
 
 ```bash
-legenda serve                                   # the server and web app, on :7778
+legenda serve                                   # the server and web app, on 127.0.0.1:7778
 legenda token you                               # a token for you (in another terminal)
 legenda login --url http://127.0.0.1:7778 --token <it>
 legenda add https://www.youtube.com/watch?v=…   # add something
 legenda list
 ```
 
-Open `http://localhost:7778` and sign in with the same `you` token. To sign in a phone
-once, open `http://<your-mac>:7778/?token=<it>`; the token is traded for a cookie and
+Open `http://localhost:7778` and sign in with the same `you` token.
+
+The server listens on this machine only (`127.0.0.1`) and answers only to `localhost`,
+`127.0.0.1` and `[::1]`; any other `Host`, and any write whose `Origin` is not one of
+those, gets a 403. That keeps web pages (DNS rebinding) and other devices out. To use it
+from a phone, open it to the network and name the host the phone will use:
+
+```bash
+legenda settings set listen_host 0.0.0.0
+legenda settings set allowed_hosts your-mac.local    # comma-separated; an IP works too
+```
+
+Restart the server for `listen_host`; `allowed_hosts` applies at once. Then, once, open
+`http://your-mac.local:7778/?token=<it>` on the phone; the token is traded for a cookie and
 removed from the address bar.
+
+The data directory and its backups are `0700`, and the database, its `-wal`/`-shm`, the
+backups and `client.json` are `0600`; `legenda serve` tightens any it finds looser.
 
 To keep it running in the background (macOS), and to take a daily backup into
 `$LEGENDA_DIR/backups`:
@@ -57,12 +72,11 @@ Each is a data directory, `LEGENDA_DIR` (default `~/.legenda`), holding its data
 # personal
 legenda settings set enabled_sources youtube,papers
 
-# work, on its own port and directory, listening on this machine only
+# work, on its own port and directory, on this machine only (the default)
 export LEGENDA_DIR=~/.legenda-work
 legenda serve --port 7779 &
 legenda token you && legenda login --url http://127.0.0.1:7779 --token <it>
 legenda settings set enabled_sources papers,docs
-legenda settings set listen_host 127.0.0.1
 legenda settings set docs_label Confluence
 legenda settings set docs_base_url https://example.atlassian.net/wiki
 legenda settings set docs_query_hint CQL
