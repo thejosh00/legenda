@@ -83,7 +83,9 @@ describe('add-found', () => {
   });
 
   test('only agents add what they found', async () => {
-    expect((await lg.j(['add-found', 'docs', '--run', run, '--origin', 'agent', '--reason', 'r', '--json-item', page('1')])).code).toBe(2);
+    const refused = await lg.j(['add-found', 'docs', '--run', run, '--origin', 'agent', '--reason', 'r', '--json-item', page('1')]);
+    expect(refused.code).toBe(2);
+    expect(refused.json.error).toBe("Adding what the curator found is the curator's job; it needs an agent token");
   });
 });
 

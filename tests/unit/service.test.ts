@@ -1,5 +1,5 @@
 import {expect, test} from 'bun:test';
-import {mkdtempSync, readdirSync} from 'node:fs';
+import {mkdtempSync, readdirSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {dailyBackup, toPrune} from '../../src/db/backup.ts';
@@ -42,5 +42,8 @@ test('daily backups: one a day, pruned to the newest', () => {
   const db = openDatabase(join(dir, 'legenda.db'));
   expect(dailyBackup(db, dir, new Date('2026-09-12T15:00:00Z'))).toContain('legenda-2026-09-12.db');
   expect(dailyBackup(db, dir, new Date('2026-09-12T18:00:00Z'))).toBeUndefined();
+  for (const day of ['2026-09-09', '2026-09-10', '2026-09-11']) writeFileSync(join(dir, 'backups', `legenda-${day}.db`), '');
+  dailyBackup(db, dir, new Date('2026-09-13T15:00:00Z'), 2);
+  expect(readdirSync(join(dir, 'backups')).sort()).toEqual(['legenda-2026-09-12.db', 'legenda-2026-09-13.db']);
   db.close();
 });

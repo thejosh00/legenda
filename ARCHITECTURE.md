@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `21c2a98` on 2026-11-09
+Last checked against: `36ebea7` on 2026-11-13
 
 ## Purpose and boundaries
 
@@ -29,7 +29,7 @@ flowchart LR
 |---|---|---|
 | CLI | `src/cli.ts`, `src/commands/`, `src/client.ts` | `serve`, `service`, `token`, `login` run locally; every other command is one HTTP call |
 | Server | `src/server/server.ts` | Bun.serve: web bundle at "/", the JSON API, an event stream for open browsers |
-| Request guard | `src/server/hostCheck.ts` | Host/Origin check before any route; self-contained to copy |
+| Request guard | `src/server/hostCheck.ts` | Host/Origin check before every route except "/", whose page bundle carries no data and is served unguarded (`src/server/server.ts`); self-contained to copy |
 | API router | `src/server/api.ts`, `src/server/routes/` | Routes marked user-only or agent-only are refused in one place |
 | Background | `src/server/background.ts` | Polls due follows every 5 min, expires stale intake, daily backup |
 | Data layer | `src/db/` | Schema, migrations, auth, caps, events; writes run in one transaction |
@@ -61,7 +61,7 @@ server enforces what that actor may do, and every write records it.
 | Actor | Gets in by | Can | Can't |
 |---|---|---|---|
 | You | `you` token (CLI) or a session cookie got by trading a `you` token in the browser | everything except the agent-only routes | start runs, suggest, add found docs, move cursors (agent-only); issue tokens over HTTP (no endpoint) |
-| Agent (curator) | `agent:<name>` token in its own client.json, set by its otto launcher | read all but settings; start/finish runs, suggest, add found docs, decide intake, move agent-fed cursors, edit the profile with a note under a size cap; all capped and idempotent | add by hand, done, dismiss, restore, feedback, follow/unfollow/block, interests, read or change settings, sign in to the web app, issue tokens |
+| Agent (curator) | `agent:<name>` token in its own client.json, set by its otto launcher | read all but settings; start/finish runs, suggest, add found docs, decide intake, move agent-fed cursors, edit the profile with a note under a size cap; all capped and idempotent. Also, uncapped: force a poll of every app-polled follow, due or not (`src/server/routes/poll.ts`); fill empty fields of any item, such as links you pasted (enrich, `src/server/routes/curator.ts`) | add by hand, done, dismiss, restore, feedback, follow/unfollow/block, interests, read or change settings, sign in to the web app, issue tokens |
 | Anyone with shell access as you | `legenda token <actor>` opens the database directly | issue any token | (outside the model: same user) |
 | The network | binds 127.0.0.1 unless the listen_host setting says otherwise; Host must be a loopback name with our port or in allowed_hosts; writes with a foreign Origin get 403 | reach the API only with a token or cookie | DNS-rebind or reach it from another device unless allowed |
 
@@ -84,16 +84,16 @@ returned by any endpoint (I14). The logs/ directory is not in the set `legenda s
 | I8 | Every change is an event recording its actor | `tests/e2e/m2-list-by-hand.test.ts`: "every change is an event, attributed" |
 | I9 | With --json, success and failure are one JSON envelope on stdout; exit codes 0–4 | `tests/e2e/m1-add-list.test.ts`: describe "the envelope and exit codes" (exit 3 in "show finds an item by id prefix or URL") |
 | I10 | Every example in `legenda agents` runs as documented | `tests/e2e/contract.test.ts`: "every example in a contract with all three sources runs as documented" |
-| I11 | A foreign Host, or a write with a foreign Origin, gets 403 before any route | `tests/e2e/r2-host-origin.test.ts`: "a request for a foreign host is refused with 403, naming the host and allowed_hosts", "a POST with a foreign Origin is refused with 403" |
+| I11 | A foreign Host, or a write with a foreign Origin, gets 403 before any route but "/" (the page bundle, no data) | `tests/e2e/r2-host-origin.test.ts`: "a request for a foreign host is refused with 403, naming the host and allowed_hosts", "a POST with a foreign Origin is refused with 403" |
 | I12 | With no listen_host set, the server binds 127.0.0.1 only | `tests/e2e/r2-file-modes.test.ts`: "with no listen_host set, legenda serve listens on 127.0.0.1 only" |
 | I13 | Data files are private, and serve tightens looser ones | `tests/e2e/r2-file-modes.test.ts`: "a new data directory, database, -wal and -shm are created private", "after legenda serve starts on a data dir with 0644 files, the dirs are 0700 and the files 0600" |
 | I14 | API keys are stored but never echoed | `tests/e2e/m5-curator-api.test.ts`: "keys are stored but never echoed" |
 | I15 | Every legenda command the skill uses exists | `tests/unit/skill.test.ts`: "every legenda command it uses exists" |
 | I16 | One backup a day, pruned to the newest | `tests/unit/service.test.ts`: "daily backups: one a day, pruned to the newest" |
-| I17 | Tests never reach the network | `tests/e2e/m4-youtube-intake.test.ts`: "no test reaches the network: every request went to a fixture" (that file only; elsewhere `tests/helpers/fakeWeb.ts` fails on unknown URLs) |
+| I17 | Tests never reach the network | **unenforced:** `tests/helpers/fakeWeb.ts` fails on unknown URLs, but only for code that uses the injected Fetcher; nothing catches a direct `fetch`. The m4 test "no test reaches the network" checks only what FakeWeb itself recorded, so it can't fail |
 | I18 | Tests never touch the real data directory | **unenforced:** the preload `tests/setup.ts` points LEGENDA_DIR at a temp dir; no test asserts it |
 | I19 | Migrations are append-only; a shipped one is never edited | **unenforced:** a comment in `src/db/database.ts`; candidate for a schema guard test |
-| I20 | `src/core/` is pure (no fs, db, clock, randomness, React) | **unenforced:** a convention in `PLAN.md` and `README.md`; candidate for an import check |
+| I20 | `src/core/` is pure (no fs, db, randomness, React), except that `nowIso` in `src/core/time.ts` reads the clock | **unenforced:** a convention in `PLAN.md` and `README.md`; candidate for an import check |
 | I21 | No AI in the app | **unenforced:** no model SDK in `package.json` today; nothing stops one being added |
 
 ## Decisions
@@ -125,7 +125,7 @@ evidence script (rung 3).
 
 ```bash
 bun install --frozen-lockfile
-bun run test            # typecheck + the whole suite (166 tests at 21c2a98)
+bun run test            # typecheck + the whole suite (166 tests at 36ebea7)
 ```
 
 ## Unverified

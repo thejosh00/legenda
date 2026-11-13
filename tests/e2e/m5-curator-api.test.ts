@@ -207,7 +207,9 @@ describe('suggest', () => {
   });
 
   test('only agents suggest', async () => {
-    expect((await lg.j(['suggest', 'youtube', vid(1), '--reason', 'x', '--run', 'r'])).code).toBe(2);
+    const refused = await lg.j(['suggest', 'youtube', vid(1), '--reason', 'x', '--run', 'r']);
+    expect(refused.code).toBe(2);
+    expect(refused.json.error).toBe("Suggesting is the curator's job; it needs an agent token");
   });
 });
 

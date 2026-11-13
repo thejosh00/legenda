@@ -75,6 +75,8 @@ describe('state transitions', () => {
     await lg.j(['done', id, '--reaction', 'liked']);
     const log = events();
     expect(log.map(e => `${e.actor} ${e.entity} ${JSON.parse(e.change).kind}`)).toEqual(['you item added', 'you item state', 'you feedback liked']);
+    await lg.j(['profile', 'set', '--stdin', '--note', 'liked one'], {as: 'agent:curator', stdin: 'Likes hand tools.'});
+    expect(events().slice(3).map(e => `${e.actor} ${e.entity} ${JSON.parse(e.change).kind}`)).toEqual(['agent:curator profile changed']);
   });
 });
 
