@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `87f0691` on 2026-11-13
+Last checked against: `d2a98f0` on 2026-11-13
 
 ## Purpose and boundaries
 
@@ -120,19 +120,35 @@ Host/Origin check, one sqlite file with append-only migrations, a skill run by o
 
 ## How to verify a change
 
-Rung 1 on the verifiability ladder (`~/workspace/architect/VISION.md`): unit and e2e tests run
-with one command, and the architect-build red/green workflow (new tests run against the base
-commit in a throwaway worktree) works here. Half of rung 2 exists: `tests/helpers/instance.ts`
-starts a real server on a free port against a temp database with seeded fixtures and drives the
-real CLI, and `bun run test:browser` (Playwright, `tests/browser/`) starts the same instance,
-seeds it, and drives the web app in a browser. So far it covers one page, the seeded list: a
-screenshot in `.playwright/gallery`, an axe check, and no console errors. It is not part of
-`bun run test`. No evidence script (rung 3).
+Rung 3 on the verifiability ladder (`~/workspace/architect/VISION.md`): a change's UI can be
+verified from screenshots that one command produces. Unit and e2e tests run with one command, and
+the architect-build red/green workflow (new tests run against the base commit in a throwaway
+worktree) works here. `tests/helpers/instance.ts` starts a real server on a free port against a
+temp database with seeded fixtures and drives the real CLI; `bun run test:browser` (Playwright,
+`tests/browser/`) starts the same instance for each test, seeds it (`seeds.ts`), and drives the web
+app in desktop Chromium. `pages.pw.ts` has one test per page (list, add, following, taste, curator,
+history): seeded content on the page, an axe check, no console errors or failed requests, and a
+screenshot in `.playwright/gallery`. `flows.pw.ts` has one flow that acts: a video added by hand
+on the Add page, marked watched with a reaction, and found in history with it. The browser run is
+part of `bun run test`; `bun run test:fast` leaves it out.
+
+`scripts/evidence.sh <out>` is the evidence command: it runs the browser suite and copies one
+screenshot per page into `<out>` (`list.png`, `add.png`, `following.png`, `taste.png`,
+`curator.png`, `history.png`), and exits non-zero if the suite fails or a page has no screenshot.
+The page list is at the top of the script. A change that touches the UI attaches that gallery as
+its evidence.
+
+Two axe rules are off, each for a real fault in the UI as it is, named where it is disabled in
+`pages.pw.ts`: `link-name` on the list (a video card's thumbnail link has no name,
+`src/web/ItemCard.tsx`) and `color-contrast` on taste, curator and history (the green pill,
+`src/web/styles.css`).
 
 ```bash
 bun install --frozen-lockfile
-bun run test            # typecheck + the whole suite (173 tests at cc6d4a5)
-bun run test:browser    # the seeded list page in a browser: screenshot, axe, console errors
+bun run test            # typecheck + the whole suite (173 tests) + the browser run (7 tests), about 11s
+bun run test:fast       # the same without the browser run
+bun run test:browser    # every page and one flow in a browser: screenshots, axe, console errors
+scripts/evidence.sh /tmp/legenda-evidence   # the same run, and one screenshot per page in that folder
 ```
 
 ## Unverified
@@ -145,4 +161,9 @@ bun run test:browser    # the seeded list page in a browser: screenshot, axe, co
 - That a failed migration leaves the database usable: no migration beyond the first exists yet.
 - The pre-migration backup on a real upgrade: with one shipped migration, I22's tests stand in
   for a later build through `openDatabase`'s `migrations` option. Restoring one is by hand.
-- The web app's screens: only serving, sign-in, the event stream and history data are tested.
+- The web app beyond what the browser tests reach: each page is tested seeded, on desktop Chromium
+  only, and one flow acts (add by hand, watched with a reaction). Untested in a browser: the
+  sign-in form, following and unfollowing, editing interests and the profile, dismissing and
+  blocking, feedback, the list's filters, a phone-sized screen, and the page updating from the
+  event stream. The Taste page's profile is seeded empty.
+- The two accessibility faults above (`link-name`, `color-contrast`) are known and not fixed.
