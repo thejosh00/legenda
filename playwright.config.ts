@@ -3,7 +3,7 @@ import {defineConfig, devices} from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/browser',
   // `*.pw.ts`, never `*.test.ts`: `bun test` does not pick these up, and Playwright picks up nothing else.
-  testMatch: ['pages.pw.ts'],
+  testMatch: ['pages.pw.ts', 'flows.pw.ts'],
   outputDir: '.playwright/results',
   fullyParallel: true,
   forbidOnly: true,

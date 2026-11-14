@@ -52,4 +52,17 @@ export const seeds: Record<string, (lg: Instance) => Promise<unknown>> = {
 
     return {follows, run, items: (await must(lg, ['list'])).items.map((i: {source: string; title: string}) => `${i.source}: ${i.title}`)};
   },
+
+  /** `everything`, then what a person does with it: interests, one thing read and liked, one dismissed as too long. */
+  reacted: async lg => {
+    const seeded = (await seeds['everything']!(lg)) as {follows: Record<string, string>; run: string};
+    await must(lg, ['interest', 'add', 'distributed consensus', '--strength', 'core', '--source', 'papers', '--note', 'Raft and what came before it']);
+    await must(lg, ['interest', 'add', 'hand-cut joinery', '--strength', 'curious']);
+    await must(lg, ['interest', 'add', 'crypto trading', '--strength', 'avoid']);
+    const items = (await must(lg, ['list'])).items as {id: string; title: string}[];
+    const id = (title: string) => items.find(i => i.title === title)!.id;
+    await must(lg, ['done', id('Design: Storage tiering'), '--reaction', 'liked', '--note', 'clear on the cold path']);
+    await must(lg, ['dismiss', id('Video vid00000002'), '--reason', 'too_long']);
+    return {...seeded, items: (await must(lg, ['list'])).items.map((i: {source: string; title: string}) => `${i.source}: ${i.title}`)};
+  },
 };
