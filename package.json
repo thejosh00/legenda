@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "bun run src/cli.ts serve --dev",
     "typecheck": "tsc --noEmit",
-    "test": "bun run typecheck && bun test",
+    "test": "bun run typecheck && bun test && bun run test:browser",
+    "test:fast": "bun run typecheck && bun test",
     "test:unit": "bun test tests/unit",
     "test:browser": "playwright test",
     "build": "bun build --compile --minify src/cli.ts --outfile dist/legenda"
