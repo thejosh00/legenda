@@ -114,7 +114,19 @@ function liftGlobals(argv: readonly string[]): Globals {
   return globals;
 }
 
+/** A failure thrown on the way (a database this build must not open) still ends as the envelope and its exit code. */
 export async function run(options: RunOptions): Promise<number> {
+  try {
+    return await runCommand(options);
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error;
+    if (options.argv.includes('--json')) options.out(JSON.stringify(failure(error.message, error.code, error.extra), null, 2));
+    else options.err(`legenda: ${error.message}`);
+    return error.code;
+  }
+}
+
+async function runCommand(options: RunOptions): Promise<number> {
   const {out, err} = options;
   const env = options.env ?? process.env;
   const now = options.now ?? nowIso;

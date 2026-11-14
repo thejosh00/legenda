@@ -10,12 +10,14 @@
  */
 import {Database} from 'bun:sqlite';
 import {mkdirSync, writeFileSync} from 'node:fs';
-import {dirname} from 'node:path';
+import {dirname, join} from 'node:path';
+import {AppError, EXIT_UNAVAILABLE} from '../core/errors.ts';
+import {BACKUP_DIR, labelledName, takeBackup} from './backup.ts';
 import {PRIVATE_DIR, PRIVATE_FILE, dbFiles, tighten} from './fileModes.ts';
 
 export const DB_FILE = 'legenda.db';
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE tokens (
     token    TEXT PRIMARY KEY,
@@ -146,6 +148,8 @@ const MIGRATIONS: string[] = [
 
 export interface OpenOptions {
   busyTimeoutMs?: number;
+  /** For a test to stand in for a later build; the shipped list otherwise. */
+  migrations?: readonly string[];
 }
 
 /** Open (creating if need be) and bring the schema up to date. `:memory:` works for tests. */
@@ -157,22 +161,40 @@ export function openDatabase(path: string, options: OpenOptions = {}): Database 
     writeFileSync(path, '', {flag: 'a', mode: PRIVATE_FILE});
     tighten(path, PRIVATE_FILE);
   }
+  const migrations = options.migrations ?? MIGRATIONS;
   const db = new Database(path, {create: true, strict: true});
+  // A database written by a newer legenda is not this build's to touch: refuse before any write.
+  const found = userVersion(db);
+  if (found > migrations.length) {
+    db.close();
+    throw new AppError(
+      `${path} is at schema version ${found}, but this legenda only knows up to version ${migrations.length}: a newer legenda wrote it. ` +
+        `Nothing was changed. Run that newer legenda, or restore a backup from ${join(dirname(path), BACKUP_DIR)}`,
+      EXIT_UNAVAILABLE,
+    );
+  }
   db.exec('PRAGMA journal_mode = WAL');
   if (path !== ':memory:') for (const file of dbFiles(path)) tighten(file, PRIVATE_FILE);
   db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.floor(options.busyTimeoutMs ?? 5000))}`);
   db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
+  migrate(db, path, migrations);
   return db;
 }
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
-function migrate(db: Database): void {
-  const current = (db.query('PRAGMA user_version').get() as {user_version: number}).user_version;
-  for (let version = current; version < MIGRATIONS.length; version++) {
+const userVersion = (db: Database) => (db.query('PRAGMA user_version').get() as {user_version: number}).user_version;
+
+function migrate(db: Database, path: string, migrations: readonly string[]): void {
+  const current = userVersion(db);
+  // Migrations only go forward, and they run on the user's real data when a landed change
+  // restarts the server, so the way back is taken first. A new database has nothing to lose.
+  if (path !== ':memory:' && current > 0 && current < migrations.length) {
+    takeBackup(db, join(dirname(path), BACKUP_DIR), labelledName(`pre-migration-v${current}`, new Date().toISOString()));
+  }
+  for (let version = current; version < migrations.length; version++) {
     db.transaction(() => {
-      db.exec(MIGRATIONS[version]!);
+      db.exec(migrations[version]!);
       db.exec(`PRAGMA user_version = ${version + 1}`);
     }).immediate();
   }

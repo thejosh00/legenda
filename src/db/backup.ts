@@ -21,6 +21,11 @@ const DAILY = /^legenda-(\d{4}-\d{2}-\d{2})\.db$/;
 export const dailyName = (at: Date) => `legenda-${localDate(at)}.db`;
 export const backupDir = (dataDir: string) => join(dataDir, BACKUP_DIR);
 
+/** `legenda-label-pre-migration-v3-20260912T150000.db`: labelled, and never pruned (not a daily name). */
+export function labelledName(label: string, at: string): string {
+  return `legenda-label-${label}-${at.replace(/[-:]|\.\d+|Z$/g, '')}.db`;
+}
+
 /** Daily backups beyond the newest `keep`, oldest first. */
 export function toPrune(names: readonly string[], keep: number): string[] {
   const daily = names.filter(name => DAILY.test(name)).sort();
