@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `36ebea7` on 2026-11-13
+Last checked against: `cc6d4a5` on 2026-11-13
 
 ## Purpose and boundaries
 
@@ -44,14 +44,15 @@ flowchart LR
 
 | State | Where | Survives a crash? | Backed up? |
 |---|---|---|---|
-| The database (items, follows, tokens, sessions, settings incl. API keys, events) | legenda.db in the data directory (`--dir`, else LEGENDA_DIR, else ~/.legenda; `src/config.ts`) | yes: WAL, busy timeout 5 s | daily VACUUM INTO backups/, integrity-checked, newest 14 kept (`src/db/backup.ts`) |
+| The database (items, follows, tokens, sessions, settings incl. API keys, events) | legenda.db in the data directory (`--dir`, else LEGENDA_DIR, else ~/.legenda; `src/config.ts`) | yes: WAL, busy timeout 5 s | daily VACUUM INTO backups/, integrity-checked, newest 14 kept (`src/db/backup.ts`); plus a `legenda-label-pre-migration-v<n>-<timestamp>.db` copy taken before an existing database is migrated, never pruned (I22) |
 | The CLI's server URL and token | client.json in the data directory the CLI runs with | n/a (written once by `legenda login`) | no |
 | Server log (service only) | logs/serve.log in the data directory; the plist in ~/Library/LaunchAgents (`src/local/service.ts`) | n/a | no |
 
 Instances share nothing: each is its own data directory and port. Migrations are an append-only
 numbered list in `src/db/database.ts`, applied in order in one transaction each and recorded in
 PRAGMA user_version. A failing migration rolls back its own transaction; there are no down
-migrations, so undoing a bad one means restoring a daily backup.
+migrations, so undoing a bad one means restoring the pre-migration backup taken just before it
+(I22). A database at a higher version than the code knows is refused at open, unchanged (I23).
 
 ## Trust boundaries
 
@@ -95,6 +96,8 @@ returned by any endpoint (I14). The logs/ directory is not in the set `legenda s
 | I19 | Migrations are append-only; a shipped one is never edited | **unenforced:** a comment in `src/db/database.ts`; candidate for a schema guard test |
 | I20 | `src/core/` is pure (no fs, db, randomness, React), except that `nowIso` in `src/core/time.ts` reads the clock | **unenforced:** a convention in `PLAN.md` and `README.md`; candidate for an import check |
 | I21 | No AI in the app | **unenforced:** no model SDK in `package.json` today; nothing stops one being added |
+| I22 | An existing file-backed database is backed up as `pre-migration-v<n>` before it is migrated, and the daily prune never removes that backup | `tests/e2e/r16-pre-migration-backup.test.ts`: "an older file-backed database is backed up once, at its old version, before it is migrated", "a brand-new database and :memory: are not backed up", "a daily prune past the keep count leaves the pre-migration backup in place" |
+| I23 | A database newer than the code is refused (exit 4) with the file and its -wal byte-for-byte unchanged; one exactly at the code's version opens | `tests/e2e/r16-newer-database-refused.test.ts`: "a database one version newer than this build is refused, byte-for-byte unchanged, naming both versions and the backup folder", "a newer database with un-checkpointed -wal frames is refused, the main file and the -wal both byte-for-byte unchanged", "the CLI and legenda serve refuse a newer database with exit 4, and the envelope with --json", "a database exactly at this build's version opens as before" |
 
 ## Decisions
 
@@ -106,6 +109,7 @@ The design record is `PLAN.md` (principles, data model, contract, milestones); i
 - 2026-10-21 · A check script wakes the curator only when the queue is low · skip needless runs · 10b4106
 - 2026-10-24 · Bind 127.0.0.1 by default, Host/Origin check, private data files (R2) · LAN and DNS-rebinding exposure; copied from otto's check_request · 6127959, 49a8431
 - 2026-10-24 · The curator gets its own client directory via an otto launcher · a shared client.json made your commands run as the curator · 21c2a98
+- 2026-11-13 · Back up before migrating; refuse a database newer than the code (R16) · a landed change migrates real data on restart, and an older build must not run against a schema it doesn't know; the version is read through a read-only connection so a refusal writes nothing · copied from lectio's pre-migration backup (1d26351)
 
 ## Family
 
@@ -125,7 +129,7 @@ evidence script (rung 3).
 
 ```bash
 bun install --frozen-lockfile
-bun run test            # typecheck + the whole suite (166 tests at 36ebea7)
+bun run test            # typecheck + the whole suite (173 tests at cc6d4a5)
 ```
 
 ## Unverified
@@ -136,4 +140,6 @@ bun run test            # typecheck + the whole suite (166 tests at 36ebea7)
 - The launchd service on a real machine (`tests/unit/service.test.ts` checks the plist and
   install calls, not launchd itself).
 - That a failed migration leaves the database usable: no migration beyond the first exists yet.
+- The pre-migration backup on a real upgrade: with one shipped migration, I22's tests stand in
+  for a later build through `openDatabase`'s `migrations` option. Restoring one is by hand.
 - The web app's screens: only serving, sign-in, the event stream and history data are tested.
