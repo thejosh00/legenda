@@ -4,7 +4,7 @@
  */
 import {Database} from 'bun:sqlite';
 import {afterEach, beforeEach, expect, test} from 'bun:test';
-import {existsSync, mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {run} from '../../src/cli.ts';
@@ -53,6 +53,28 @@ test('a database one version newer than this build is refused, byte-for-byte unc
   expect(readFileSync(path).equals(before)).toBe(true);
   expect(versionOf(path)).toBe(SCHEMA_VERSION + 1);
   expect(existsSync(join(dir, BACKUP_DIR))).toBe(false);
+});
+
+test('a newer database with un-checkpointed -wal frames is refused, the main file and the -wal both byte-for-byte unchanged', () => {
+  // As a newer legenda left it when it was killed: its last writes, the version among them,
+  // are still in the -wal. Copied while that connection is open, so nothing is checkpointed.
+  const copy = join(dir, 'crashed', DB_FILE);
+  mkdirSync(join(dir, 'crashed'));
+  const newer = openDatabase(path);
+  newer.exec('PRAGMA wal_autocheckpoint = 0');
+  newer.exec(`PRAGMA user_version = ${SCHEMA_VERSION + 1}`);
+  newer.query("INSERT INTO settings (key, value) VALUES ('r16', 'in the wal')").run();
+  copyFileSync(path, copy);
+  copyFileSync(`${path}-wal`, `${copy}-wal`);
+  newer.close();
+  const before = {db: readFileSync(copy), wal: readFileSync(`${copy}-wal`)};
+  expect(before.wal.length).toBeGreaterThan(0);
+
+  expect(() => openDatabase(copy)).toThrow(`schema version ${SCHEMA_VERSION + 1}`);
+
+  expect(readFileSync(copy).equals(before.db)).toBe(true);
+  expect(existsSync(`${copy}-wal`)).toBe(true);
+  expect(readFileSync(`${copy}-wal`).equals(before.wal)).toBe(true);
 });
 
 test('the CLI and legenda serve refuse a newer database with exit 4, and the envelope with --json', async () => {

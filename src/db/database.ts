@@ -162,17 +162,19 @@ export function openDatabase(path: string, options: OpenOptions = {}): Database 
     tighten(path, PRIVATE_FILE);
   }
   const migrations = options.migrations ?? MIGRATIONS;
-  const db = new Database(path, {create: true, strict: true});
-  // A database written by a newer legenda is not this build's to touch: refuse before any write.
-  const found = userVersion(db);
+  // A database written by a newer legenda is not this build's to touch. Its version is read through
+  // a read-only connection, so refusing writes nothing: closing it cannot checkpoint a leftover -wal.
+  const peek = path === ':memory:' ? undefined : new Database(path, {readonly: true});
+  const found = peek === undefined ? 0 : userVersion(peek);
+  peek?.close();
   if (found > migrations.length) {
-    db.close();
     throw new AppError(
       `${path} is at schema version ${found}, but this legenda only knows up to version ${migrations.length}: a newer legenda wrote it. ` +
         `Nothing was changed. Run that newer legenda, or restore a backup from ${join(dirname(path), BACKUP_DIR)}`,
       EXIT_UNAVAILABLE,
     );
   }
+  const db = new Database(path, {create: true, strict: true});
   db.exec('PRAGMA journal_mode = WAL');
   if (path !== ':memory:') for (const file of dbFiles(path)) tighten(file, PRIVATE_FILE);
   db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.floor(options.busyTimeoutMs ?? 5000))}`);
