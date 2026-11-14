@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `cc6d4a5` on 2026-11-13
+Last checked against: `87f0691` on 2026-11-13
 
 ## Purpose and boundaries
 
@@ -124,12 +124,15 @@ Rung 1 on the verifiability ladder (`~/workspace/architect/VISION.md`): unit and
 with one command, and the architect-build red/green workflow (new tests run against the base
 commit in a throwaway worktree) works here. Half of rung 2 exists: `tests/helpers/instance.ts`
 starts a real server on a free port against a temp database with seeded fixtures and drives the
-real CLI, but only inside the test suite, and nothing drives the web app in a browser. No
-evidence script (rung 3).
+real CLI, and `bun run test:browser` (Playwright, `tests/browser/`) starts the same instance,
+seeds it, and drives the web app in a browser. So far it covers one page, the seeded list: a
+screenshot in `.playwright/gallery`, an axe check, and no console errors. It is not part of
+`bun run test`. No evidence script (rung 3).
 
 ```bash
 bun install --frozen-lockfile
 bun run test            # typecheck + the whole suite (173 tests at cc6d4a5)
+bun run test:browser    # the seeded list page in a browser: screenshot, axe, console errors
 ```
 
 ## Unverified
