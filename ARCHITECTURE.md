@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `d2a98f0` on 2026-11-13
+Last checked against: `b977a04` on 2026-11-19
 
 ## Purpose and boundaries
 
@@ -82,7 +82,7 @@ returned by any endpoint (I14). The logs/ directory is not in the set `legenda s
 | I5 | Tokens are issued only on the server machine, never over HTTP | **unenforced:** true by absence of an endpoint; no test asserts it |
 | I6 | Adding a known item changes nothing; a dismissed item is never resurrected | `tests/e2e/m5-curator-api.test.ts`: "is idempotent: a known item returns existing and costs no cap"; `tests/e2e/m2-list-by-hand.test.ts`: "a dismissed item is never resurrected by adding it again" |
 | I7 | The server enforces the curator's caps (daily, per source, per creator per run) | `tests/e2e/m5-curator-api.test.ts`: "the daily cap, overall and per source", "at most N per creator per run" |
-| I8 | Every change is an event recording its actor | `tests/e2e/m2-list-by-hand.test.ts`: "every change is an event, attributed" |
+| I8 | Every change made through a write route in the API's route table is an event recording the caller as its actor, except the two routes named under "Unverified" | `tests/e2e/r27-every-write-is-an-event.test.ts`: "every write route records an event with the caller as its actor" (walks `allRoutes()`; a new write route with no call and no named exception fails it); also `tests/e2e/m2-list-by-hand.test.ts`: "every change is an event, attributed" |
 | I9 | With --json, success and failure are one JSON envelope on stdout; exit codes 0–4 | `tests/e2e/m1-add-list.test.ts`: describe "the envelope and exit codes" (exit 3 in "show finds an item by id prefix or URL") |
 | I10 | Every example in `legenda agents` runs as documented | `tests/e2e/contract.test.ts`: "every example in a contract with all three sources runs as documented" |
 | I11 | A foreign Host, or a write with a foreign Origin, gets 403 before any route but "/" (the page bundle, no data) | `tests/e2e/r2-host-origin.test.ts`: "a request for a foreign host is refused with 403, naming the host and allowed_hosts", "a POST with a foreign Origin is refused with 403" |
@@ -145,7 +145,7 @@ Two axe rules are off, each for a real fault in the UI as it is, named where it 
 
 ```bash
 bun install --frozen-lockfile
-bun run test            # typecheck + the whole suite (173 tests) + the browser run (7 tests), about 11s
+bun run test            # typecheck + the whole suite (174 tests) + the browser run (7 tests), about 11s
 bun run test:fast       # the same without the browser run
 bun run test:browser    # every page and one flow in a browser: screenshots, axe, console errors
 scripts/evidence.sh /tmp/legenda-evidence   # the same run, and one screenshot per page in that folder
@@ -166,4 +166,10 @@ scripts/evidence.sh /tmp/legenda-evidence   # the same run, and one screenshot p
   sign-in form, following and unfollowing, editing interests and the profile, dismissing and
   blocking, feedback, the list's filters, a phone-sized screen, and the page updating from the
   event stream. The Taste page's profile is seeded empty.
+- I8's exceptions, named in `tests/e2e/r27-every-write-is-an-event.test.ts`: `POST /api/poll` records its
+  events as the poller's actor "app", so who forced a poll (you or the agent) is not recorded; and
+  `POST /api/sources/:source/details` is a lookup that records no event (with a YouTube API key it
+  counts quota units in the database without one: read from `src/sources/youtube.ts`, not run).
+  Sign-in and sign-out (`/api/session` in `src/server/server.ts`) are outside the route table, write
+  a session row, and record no event; no test covers them for I8.
 - The two accessibility faults above (`link-name`, `color-contrast`) are known and not fixed.
