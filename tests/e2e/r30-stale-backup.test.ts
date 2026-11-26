@@ -3,11 +3,13 @@ import {afterEach, beforeEach, expect, test} from 'bun:test';
 import {mkdirSync, utimesSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {openDatabase} from '../../src/db/database.ts';
-import {BACKUP_STALE_MS, backupStatus, labelledName} from '../../src/db/backup.ts';
+// The whole module, so that on a build without backupStatus each test fails on its own line, not the file at import.
+import * as backups from '../../src/db/backup.ts';
 import {startServer} from '../../src/server/server.ts';
 import {createToken} from '../../src/db/auth.ts';
 import {startInstance, T0, type Instance} from '../helpers/instance.ts';
 
+const {BACKUP_STALE_MS, backupStatus, labelledName} = backups;
 const HOUR = 3_600_000;
 let lg: Instance;
 beforeEach(async () => {
