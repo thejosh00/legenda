@@ -298,6 +298,7 @@ async function serve(request: ServeRequest): Promise<number> {
     hostname: request.hostname,
     port: request.port,
     development: request.development,
+    dataDir: request.dataDir,
     background: deps => startBackground(deps, {dataDir: request.dataDir, log: line => request.out(line)}),
     log: line => request.out(line),
   });

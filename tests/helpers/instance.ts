@@ -53,7 +53,7 @@ export async function startInstance(options: {now?: string; settings?: Record<st
   const clock = {now: options.now ?? T0};
   const web = new FakeWeb();
   const log: string[] = [];
-  const server = startServer({db, port: 0, hostname: '127.0.0.1', now: () => clock.now, fetcher: web.fetcher, log: line => log.push(line)});
+  const server = startServer({db, port: 0, hostname: '127.0.0.1', dataDir: dir, now: () => clock.now, fetcher: web.fetcher, log: line => log.push(line)});
   const tokens: Record<string, string> = {};
   const token = (actor: string) => (tokens[actor] ??= createToken(db, actor, clock.now));
   token('you');

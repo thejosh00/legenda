@@ -146,6 +146,11 @@ export function App() {
             ))}
           </nav>
         </header>
+        {who.backup?.stale && (
+          <p className="backup-warning" role="alert">
+            {who.backup.last === null ? 'No backup has been taken' : `No backup since ${new Date(who.backup.last).toLocaleDateString(undefined, {dateStyle: 'medium'})}`} — see serve.log
+          </p>
+        )}
         <main className="content">
           {view === 'list' && <ListView />}
           {view === 'add' && <AddView />}

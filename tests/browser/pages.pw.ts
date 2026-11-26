@@ -108,3 +108,24 @@ test('history holds', async ({legenda, signedIn: page}, testInfo) => {
   await expect(cards).toContainText('Video vid00000002');
   await expect(cards.locator('.history-line')).toContainText('too long');
 });
+
+test('a stale backup is said on every page, and only while it is stale', async ({legenda, signedIn: page}, testInfo) => {
+  await legenda.seed('reacted');
+  const banner = page.locator('.backup-warning');
+  // No backup yet on a server that has just started: nothing to say.
+  const main = await open(page, legenda, 'list');
+  await expect(main.locator('.cards')).toBeVisible();
+  await expect(banner).toHaveCount(0);
+
+  // The newest daily backup was written 40 hours before the clock (2026-09-10T23:00Z, 6pm in Chicago).
+  await legenda.seed('staleBackup');
+  for (const view of ['list', 'add', 'following', 'taste', 'curator', 'history']) {
+    await open(page, legenda, view);
+    await expect(banner, view).toHaveText('No backup since Sep 10, 2026 — see serve.log');
+    // Between the header and the page, not inside either.
+    await expect(page.locator('header.topbar + .backup-warning + main.content'), view).toBeVisible();
+  }
+  await open(page, legenda, 'list');
+  await expect(banner).toBeVisible();
+  await pageHolds(page, testInfo, 'stale-backup', {axeDisableRules: ['link-name']});
+});

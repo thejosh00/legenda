@@ -21,6 +21,8 @@ export interface WhoAmI {
   enabled_sources: string[];
   sources: SourceInfo[];
   docs?: {label: string; item_label: string; reauth_hint: string | null};
+  /** The daily backup: when the newest was written, and whether it has stopped (see backupStatus in src/db/backup.ts). */
+  backup?: {last: string | null; stale: boolean};
 }
 
 export interface FeedbackEntry {

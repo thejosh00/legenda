@@ -30,6 +30,8 @@ export interface ServeOptions {
   fetcher?: Fetcher;
   gates?: RateGates;
   development?: boolean;
+  /** The data folder, so `whoami` can say whether the daily backup has stopped. Without it, it says nothing. */
+  dataDir?: string;
   /** Background work (the poller, backups). Off in tests, which drive it themselves. */
   background?: (deps: AppDeps) => () => void;
   /** Where failed API requests are reported. Off unless given. */
@@ -122,7 +124,7 @@ export function startServer(options: ServeOptions): RunningServer {
   const {db} = options;
   const now = options.now ?? nowIso;
   const hub = new EventHub();
-  const deps: AppDeps = {db, hub, now, fetcher: options.fetcher ?? ((url, init) => fetch(url, init)), gates: options.gates ?? new RateGates()};
+  const deps: AppDeps = {db, hub, now, fetcher: options.fetcher ?? ((url, init) => fetch(url, init)), gates: options.gates ?? new RateGates(), ...(options.dataDir === undefined ? {} : {dataDir: options.dataDir, startedAt: now()})};
 
   // Every request is checked before it is routed (see hostCheck.ts). allowed_hosts is
   // read per request, so `legenda settings set allowed_hosts …` applies at once. The

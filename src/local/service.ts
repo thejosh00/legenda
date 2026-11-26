@@ -6,13 +6,14 @@
  * (`~/.legenda` → `com.legenda.serve`, `~/.legenda-work` → `com.legenda.serve.legenda-work`),
  * so a personal and a work instance on one machine never replace each other.
  */
-import {existsSync, mkdirSync, unlinkSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, statSync, unlinkSync, writeFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {basename, join, resolve} from 'node:path';
 import {flagValue, parseArgs} from '../core/args.ts';
 import {EXIT_ERROR, EXIT_OK, EXIT_USAGE} from '../core/errors.ts';
 import {DEFAULT_DIR_NAME} from '../config.ts';
-import {latestBackup} from '../db/backup.ts';
+import {backupStatus, latestBackup} from '../db/backup.ts';
+import {DB_FILE} from '../db/database.ts';
 
 export function serviceLabel(dataDir: string): string {
   const name = basename(dataDir).replace(/^\./, '');
@@ -90,6 +91,7 @@ export interface ServiceContext {
   platform?: string;
   uid?: number;
   execPath?: string;
+  now?: () => Date;
 }
 
 const USAGE = [
@@ -196,20 +198,24 @@ export function serviceCommand(ctx: ServiceContext, argv: readonly string[]): nu
       return EXIT_OK;
     }
     case 'status': {
-      if (!existsSync(plistPath)) {
-        ctx.out('not installed');
-        return EXIT_OK;
-      }
-      const printed = launchctl(['print', target]);
-      if (printed.code !== 0) ctx.out('installed, not running');
+      const printed = existsSync(plistPath) ? launchctl(['print', target]) : undefined;
+      if (printed === undefined) ctx.out('not installed');
+      else if (printed.code !== 0) ctx.out('installed, not running');
       else {
         const pid = /\bpid = (\d+)/.exec(printed.stdout)?.[1];
         ctx.out(pid === undefined ? 'installed, waiting to restart' : `running, pid ${pid}`);
       }
+      // The backups are read from the folder, not asked of the server: a stopped server is when it matters.
+      const now = ctx.now?.() ?? new Date();
+      const dbPath = join(ctx.dataDir, DB_FILE);
+      if (printed === undefined && !existsSync(dbPath)) return EXIT_OK;
       const latest = latestBackup(ctx.dataDir);
       ctx.out(latest === undefined ? 'no backups yet' : `last backup: ${latest.name}, ${latest.modified.toLocaleString()}`);
+      // With no backup at all, the database's own age stands in: a new install has had no time to take one.
+      const backup = backupStatus(ctx.dataDir, now, existsSync(dbPath) ? statSync(dbPath).birthtime : now);
+      if (backup.stale) ctx.out(backup.last === null ? 'warning: no backup has been taken: see serve.log' : `warning: no backup since ${new Date(backup.last).toLocaleString()}: see serve.log`);
       ctx.out(`log: ${logPath}`);
-      return EXIT_OK;
+      return backup.stale ? EXIT_ERROR : EXIT_OK;
     }
     case 'logs': {
       const tail = Bun.spawnSync(['tail', '-n', '50', '-f', logPath], {stdout: 'inherit', stderr: 'inherit'});

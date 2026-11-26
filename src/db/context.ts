@@ -19,6 +19,9 @@ export interface AppDeps {
   now: () => string;
   fetcher: Fetcher;
   gates: RateGates;
+  /** Where the backups are, and when this server started: what `whoami` needs to say whether they have stopped. Absent without a data folder (`:memory:`). */
+  dataDir?: string;
+  startedAt?: string;
 }
 
 export class Ctx {
@@ -27,6 +30,8 @@ export class Ctx {
   readonly now: () => string;
   readonly fetcher: Fetcher;
   readonly gates: RateGates;
+  readonly dataDir: string | undefined;
+  readonly startedAt: string | undefined;
   private cachedSources: Sources | undefined;
 
   constructor(deps: AppDeps, readonly actor: Actor) {
@@ -35,6 +40,8 @@ export class Ctx {
     this.now = deps.now;
     this.fetcher = deps.fetcher;
     this.gates = deps.gates;
+    this.dataDir = deps.dataDir;
+    this.startedAt = deps.startedAt;
   }
 
   get isAgent(): boolean {

@@ -16,6 +16,8 @@ import {PRIVATE_DIR, PRIVATE_FILE} from './fileModes.ts';
 
 export const BACKUP_DIR = 'backups';
 export const KEEP_DAILY = 14;
+/** A daily backup older than this has stopped: a day, plus half a day for a laptop that slept through one. */
+export const BACKUP_STALE_MS = 36 * 60 * 60_000;
 const DAILY = /^legenda-(\d{4}-\d{2}-\d{2})\.db$/;
 
 export const dailyName = (at: Date) => `legenda-${localDate(at)}.db`;
@@ -71,4 +73,21 @@ export function latestBackup(dataDir: string): {name: string; modified: Date} | 
   const names = readdirSync(dir).filter(n => DAILY.test(n)).sort();
   const name = names[names.length - 1];
   return name === undefined ? undefined : {name, modified: statSync(join(dir, name)).mtime};
+}
+
+export interface BackupStatus {
+  /** When the newest daily backup was written, or null when there is none. */
+  last: string | null;
+  stale: boolean;
+}
+
+/**
+ * Whether the daily backup has stopped. Stale when the newest daily backup was written more than
+ * `BACKUP_STALE_MS` before `now`; or, with none at all, when `since` (when the server started, or
+ * when the database file was made) is itself that long ago. Labelled backups never count.
+ */
+export function backupStatus(dataDir: string, now: Date, since: Date): BackupStatus {
+  const latest = latestBackup(dataDir);
+  const from = latest?.modified ?? since;
+  return {last: latest?.modified.toISOString() ?? null, stale: now.getTime() - from.getTime() > BACKUP_STALE_MS};
 }

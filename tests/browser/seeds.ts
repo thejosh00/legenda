@@ -2,6 +2,8 @@
  * What a browser test starts from, built through the real CLI against the instance's FakeWeb, on
  * the instance's fixed clock. Generic content only: nothing personal belongs in fixtures.
  */
+import {mkdirSync, utimesSync, writeFileSync} from 'node:fs';
+import {join} from 'node:path';
 import type {CliResult, Instance} from '../helpers/instance.ts';
 import {PAPERS, RAFT_ARXIV, serveS2} from '../helpers/papers.ts';
 import {CHANNEL, serveChannel, serveOembed} from '../helpers/youtube.ts';
@@ -22,6 +24,21 @@ async function must(lg: Instance, args: string[], options?: {as?: string}): Prom
 export const seeds: Record<string, (lg: Instance) => Promise<unknown>> = {
   /** Nothing at all: the list a new user sees. */
   empty: async () => ({}),
+
+  /**
+   * The daily backup stopped 40 hours ago: one daily file, written that long before the instance's
+   * clock. The time is set on the file (a new file would carry today's real time, far ahead of the
+   * fixed clock), and the harness runs no background job, so nothing takes a fresh one.
+   */
+  staleBackup: async lg => {
+    const dir = join(lg.dir, 'backups');
+    mkdirSync(dir, {recursive: true});
+    const written = new Date(Date.parse(lg.clock.now) - 40 * 3_600_000);
+    const file = join(dir, 'legenda-2026-09-10.db');
+    writeFileSync(file, '');
+    utimesSync(file, written, written);
+    return {written: written.toISOString()};
+  },
 
   /** Items from all three sources, added by hand, by a follow and by the curator; three follows; one finished run. */
   everything: async lg => {

@@ -7,6 +7,7 @@
  * here, in one place, rather than by each handler remembering to check.
  */
 import {AppError, EXIT_ERROR, EXIT_USAGE, describe, refused} from '../core/errors.ts';
+import {backupStatus} from '../db/backup.ts';
 import type {Ctx} from '../db/context.ts';
 import {contractDocument} from '../db/contract.ts';
 import {getSetting} from '../db/settings.ts';
@@ -29,6 +30,7 @@ const ROUTES: Route[] = [
       enabled_sources: ctx.sources.enabled,
       sources: ctx.sources.list().map(s => ({id: s.id, name: s.label.name, done_label: s.label.done, item_label: s.label.item, fetched_by: s.fetchedBy, follow_kinds: s.followKinds})),
       ...(ctx.sources.isEnabled('docs') ? {docs: {label: getSetting(ctx.db, 'docs_label'), item_label: getSetting(ctx.db, 'docs_item_label'), reauth_hint: getSetting(ctx.db, 'docs_reauth_hint') ?? null}} : {}),
+      ...(ctx.dataDir === undefined ? {} : {backup: backupStatus(ctx.dataDir, new Date(ctx.now()), new Date(ctx.startedAt ?? ctx.now()))}),
     }),
   },
   {method: 'GET', path: '/api/agents', handler: ctx => ({document: contractDocument(ctx)})},

@@ -3,8 +3,9 @@
 # Fails if the suite fails or a page has no picture.
 set -euo pipefail
 
-# Every page of the web app (the tabs in src/web/App.tsx). A new page goes here and in tests/browser/pages.pw.ts.
-PAGES=(list add following taste curator history)
+# Every page of the web app (the tabs in src/web/App.tsx), and the list under the stale-backup banner.
+# A new page goes here and in tests/browser/pages.pw.ts.
+PAGES=(list add following taste curator history stale-backup)
 
 out="${1:?usage: scripts/evidence.sh <out>}"
 cd "$(dirname "$0")/.."

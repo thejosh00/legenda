@@ -1,6 +1,6 @@
 # legenda — architecture
 
-Last checked against: `b977a04` on 2026-11-19
+Last checked against: `ac790db` on 2026-11-26
 
 ## Purpose and boundaries
 
@@ -44,7 +44,7 @@ flowchart LR
 
 | State | Where | Survives a crash? | Backed up? |
 |---|---|---|---|
-| The database (items, follows, tokens, sessions, settings incl. API keys, events) | legenda.db in the data directory (`--dir`, else LEGENDA_DIR, else ~/.legenda; `src/config.ts`) | yes: WAL, busy timeout 5 s | daily VACUUM INTO backups/, integrity-checked, newest 14 kept (`src/db/backup.ts`); plus a `legenda-label-pre-migration-v<n>-<timestamp>.db` copy taken before an existing database is migrated, never pruned (I22) |
+| The database (items, follows, tokens, sessions, settings incl. API keys, events) | legenda.db in the data directory (`--dir`, else LEGENDA_DIR, else ~/.legenda; `src/config.ts`) | yes: WAL, busy timeout 5 s | daily VACUUM INTO backups/, integrity-checked, newest 14 kept (`src/db/backup.ts`); plus a `legenda-label-pre-migration-v<n>-<timestamp>.db` copy taken before an existing database is migrated, never pruned (I22). A daily backup that fails only logs, so one that has stopped for 36 hours is said aloud: `backupStatus` in `src/db/backup.ts` (I24) |
 | The CLI's server URL and token | client.json in the data directory the CLI runs with | n/a (written once by `legenda login`) | no |
 | Server log (service only) | logs/serve.log in the data directory; the plist in ~/Library/LaunchAgents (`src/local/service.ts`) | n/a | no |
 
@@ -98,6 +98,7 @@ returned by any endpoint (I14). The logs/ directory is not in the set `legenda s
 | I21 | No AI in the app | **unenforced:** no model SDK in `package.json` today; nothing stops one being added |
 | I22 | An existing file-backed database is backed up as `pre-migration-v<n>` before it is migrated, and the daily prune never removes that backup | `tests/e2e/r16-pre-migration-backup.test.ts`: "an older file-backed database is backed up once, at its old version, before it is migrated", "a brand-new database and :memory: are not backed up", "a daily prune past the keep count leaves the pre-migration backup in place" |
 | I23 | A database newer than the code is refused (exit 4) with the file and its -wal byte-for-byte unchanged; one exactly at the code's version opens | `tests/e2e/r16-newer-database-refused.test.ts`: "a database one version newer than this build is refused, byte-for-byte unchanged, naming both versions and the backup folder", "a newer database with un-checkpointed -wal frames is refused, the main file and the -wal both byte-for-byte unchanged", "the CLI and legenda serve refuse a newer database with exit 4, and the envelope with --json", "a database exactly at this build's version opens as before" |
+| I24 | A daily backup more than 36 hours old (`BACKUP_STALE_MS`) is reported by `whoami` (`backup: {last, stale}`, behind the session check like the rest of `/api/*`), by the banner on every page, and by `legenda service status` (a warning line and exit 1); labelled and pre-migration backups don't count as the daily one | `tests/e2e/r30-stale-backup.test.ts`: "whoami says the daily backup is stale past 36 hours, with its time, and not at 35", "a fresh pre-migration or labelled backup beside an old daily one is still stale", "with no daily backup at all, stale only once the server has been up that long", "backupStatus is exact at the edge: 36 hours is not stale, a second more is", "a server with no data folder says nothing about backups"; `tests/unit/service.test.ts`: "service status warns and exits 1 when the daily backup is stale, running or not", "service status exits 0 without a warning when the daily backup is fresh", "service status with no daily backup warns only when the database is itself more than 36 hours old"; `tests/browser/pages.pw.ts`: "a stale backup is said on every page, and only while it is stale" |
 
 ## Decisions
 
@@ -110,6 +111,7 @@ The design record is `PLAN.md` (principles, data model, contract, milestones); i
 - 2026-10-24 · Bind 127.0.0.1 by default, Host/Origin check, private data files (R2) · LAN and DNS-rebinding exposure; copied from otto's check_request · 6127959, 49a8431
 - 2026-10-24 · The curator gets its own client directory via an otto launcher · a shared client.json made your commands run as the curator · 21c2a98
 - 2026-11-13 · Back up before migrating; refuse a database newer than the code (R16) · a landed change migrates real data on restart, and an older build must not run against a schema it doesn't know; the version is read through a read-only connection so a refusal writes nothing · copied from lectio's pre-migration backup (1d26351)
+- 2026-11-26 · A stopped daily backup is said by `whoami`, a banner and `service status` (R30) · a failed backup only logged, and the folder still looked full; it rides on the signed-in `whoami` call because legenda has no health route and a token-less one would answer strangers · one pure `backupStatus` and one constant, for lectio and omnifactum to copy
 
 ## Family
 
@@ -134,7 +136,7 @@ part of `bun run test`; `bun run test:fast` leaves it out.
 
 `scripts/evidence.sh <out>` is the evidence command: it runs the browser suite and copies one
 screenshot per page into `<out>` (`list.png`, `add.png`, `following.png`, `taste.png`,
-`curator.png`, `history.png`), and exits non-zero if the suite fails or a page has no screenshot.
+`curator.png`, `history.png`, and `stale-backup.png`: the list under the stale-backup banner), and exits non-zero if the suite fails or a page has no screenshot.
 The page list is at the top of the script. A change that touches the UI attaches that gallery as
 its evidence.
 
